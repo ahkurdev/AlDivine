@@ -92,6 +92,9 @@ BLOCKED_EXTERNAL, NOT_SUPPORTED, PLANNED.
 
 ## Next action
 
-PHASE 8: ald-vfs — `@resource/path` resolution, sandbox writes, symlink /
-junction / reparse-point hardening, case-insensitivity and Unicode
-normalization checks, reserved Windows device names.
+## Next action
+
+PHASE 9: ald-resource-manifest / ald-fxmanifest — NormalizedManifest,
+fxmanifest.lua, __resource.lua, all documented directives (fx_version,
+client_script(s), server_script(s), shared_script(s), ui_page, exports,
+dependency, provide, data_file, level meta, convar_category, OAL flag).

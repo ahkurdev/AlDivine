@@ -47,3 +47,20 @@
 - Next: PHASE 8 ald-vfs (@resource/path, sandbox writes, symlink/junction
   and reparse-point hardening, case-insensitivity, Unicode normalization,
   reserved Windows device names).
+
+## PHASE 8 — Aldivine VFS (ald-vfs)
+
+- Implemented resource-scoped virtual filesystem: mount table, @resource/path
+  resolution, explicit one-way share() for cross-resource reads, sandboxed writes.
+- Hardening, all backed by tests: lexical traversal bound (net depth < 0 rejected),
+  Windows reserved device names (COM1-9 / LPT1-9 / con / prn / aux / nul),
+  alternate data streams, NUL bytes, RTLO override and combining diacritics.
+- Reads and writes re-canonicalize after following filesystem links, so a
+  symlink or junction swapped in after validation still cannot escape.
+- Writes go to a temp sibling then rename only after final containment check.
+- 16 tests green, including a 4600-case adversarial path sweep that asserts
+  every generated path either errors or resolves inside the sandbox root.
+- Bugs found by the tests and fixed: ..  accepted as a resource name; COM10+
+  falsely treated as a reserved device name (Windows reserves COM1-9 only);
+  depth check ran on raw backslash separators before normalization;
+  verify_within rejected the legit Windows absolute-prefix of a canonical root.

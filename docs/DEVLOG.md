@@ -80,3 +80,21 @@
 - convar_category parses into structured Aegis form metadata (convar, name, help,
   default, min, max, type) to drive automatic resource configuration UI.
 - 20 tests green; full workspace regression 511 tests, 0 failed.
+
+## PHASE 10 — CfxLua compatibility frontend (ald-cfxlua-compat)
+
+- Vector value types (vector2/3/4, quat/quaternion) on mlua Lua 5.4: field
+  semantics, arithmetic metatables (__add/__sub/__mul both vec*vec and
+  vec*scalar), __tostring, __eq.
+- joaat one-at-a-time hashing as a joaat() global and as a backtick source
+  preprocessor so legacy sources load unmodified.
+- json global with Cfx array-vs-object table detection; msgpack global with a
+  self-contained ext-free msgpack codec (golden wire bytes, truncation
+  rejected).
+- promise global + Citizen.Await (synchronous resolve, reject surfaces as a
+  Lua error).
+- Reference-value correction caught during testing: an earlier test asserted
+  joaat("adder") == 0x2b41d343, which was an invented value. The true Jenkins
+  one-at-a-time result is 0xb779a091, verified independently. Test fixed, not
+  the implementation.
+- 20/20 tests green; workspace regression 531 tests / 0 failed.

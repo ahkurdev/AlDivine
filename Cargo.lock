@@ -72,6 +72,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ald-cfxlua-compat"
+version = "0.1.0"
+dependencies = [
+ "ald-core",
+ "mlua",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "ald-compat"
 version = "0.1.0"
 dependencies = [

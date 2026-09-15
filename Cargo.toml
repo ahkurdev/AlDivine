@@ -38,6 +38,7 @@ members = [
   "crates/ald-edge",
   "crates/ald-vfs",
   "crates/ald-fxmanifest",
+  "crates/ald-cfxlua-compat",
   "client/astryn",
   "framework/aldivine",
   "server/ald-server",

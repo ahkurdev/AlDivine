@@ -1,0 +1,17 @@
+[package]
+name = "ald-cfxlua-compat"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+ald-core = { path = "../ald-core" }
+mlua = { version = "0.10", features = ["lua54", "vendored"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[lib]
+name = "ald_cfxlua_compat"
+path = "src/lib.rs"

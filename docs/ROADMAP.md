@@ -97,3 +97,12 @@ CfxLua compatibility frontend: vector2/3/4 + quat, backtick joaat-style
 compile-time hashes, json/promise/msgpack globals, Citizen.Await, module
 loading, plus golden behavior tests. Depends on the rquickjs-style embed
 already present in the workspace.
+## Next action
+
+PHASE 11 — Client JavaScript runtime (ald-script-js): embedded JS engine with
+Citizen-compatible client APIs. Not Node.js; do not pretend otherwise.
+
+## Next action
+
+PHASE 11 — Client JavaScript runtime (ald-script-js): embedded JS engine with
+Citizen-compatible client APIs. Not Node.js; do not pretend otherwise.

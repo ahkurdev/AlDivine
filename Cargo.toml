@@ -16,6 +16,7 @@ members = [
   "crates/ald-network",
   "crates/ald-ecs",
   "crates/ald-security",
+  "crates/ald-servercfg",
   "crates/ald-database",
   "crates/ald-compat",
   "crates/ald-audit",

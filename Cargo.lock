@@ -283,6 +283,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ald-servercfg"
+version = "0.1.0"
+dependencies = [
+ "ald-core",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "ald-telemetry"
 version = "0.1.0"
 dependencies = [

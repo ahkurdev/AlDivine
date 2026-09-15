@@ -25,6 +25,7 @@ members = [
   "crates/ald-compat",
   "crates/ald-package",
   "apps/novagate",
+  "aegis/backend",
   "crates/acl-esx",
   "crates/acl-qbcore",
   "crates/acl-qbox",
@@ -49,6 +50,7 @@ thiserror = "1"
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "macros"] }
 ulid = { version = "1", features = ["serde"] }
 hmac = "0.12"
+sha1 = "0.10"
 sha2 = "0.10"
 base64 = "0.22"
 rand = "0.8"

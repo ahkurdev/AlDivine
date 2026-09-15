@@ -12,16 +12,20 @@
 //! - Every privileged action is written to an audit log with actor, target,
 //!   and time.
 
+pub mod alerts;
 pub mod audit;
 pub mod auth;
 pub mod passwords;
 pub mod player_actions;
+pub mod profiler;
 pub mod sessions;
 pub mod totp;
 
+pub use alerts::{Alert, AlertKind, Alerts, IncidentTimeline, Severity, TimelineEvent, TimelineKind};
 pub use audit::{AuditAction, AuditEntry, AuditLog};
 pub use auth::{AuthOutcome, AuthService, LoginAttempt};
 pub use passwords::{hash_password, verify_password, PasswordError};
 pub use player_actions::{ActionOutcome, BanDuration, BanRecord, PermissionResolver, PlayerActions};
+pub use profiler::{ExecutionStats, Profiler, ResourceProfile, ResourceSnapshot};
 pub use sessions::{Session, SessionStore};
 pub use totp::{generate_totp_secret, totp_code, verify_totp, TotpError};

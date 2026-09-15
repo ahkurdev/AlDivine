@@ -23,6 +23,7 @@ members = [
   "crates/ald-script-lua",
   "crates/ald-script-js",
   "crates/ald-replication",
+  "crates/ald-serialization-compat",
   "crates/ald-compat",
   "crates/ald-package",
   "apps/novagate",

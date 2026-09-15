@@ -1,0 +1,9 @@
+[package]
+name = "ald-serialization-compat"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+ald-core = { path = "../ald-core" }
+serde_json.workspace = true

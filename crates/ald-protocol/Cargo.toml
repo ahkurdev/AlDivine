@@ -9,3 +9,4 @@ serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 ald-core = { path = "../ald-core" }
+ald-serialization-compat = { path = "../ald-serialization-compat" }

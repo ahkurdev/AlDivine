@@ -211,6 +211,7 @@ name = "ald-protocol"
 version = "0.1.0"
 dependencies = [
  "ald-core",
+ "ald-serialization-compat",
  "serde",
  "serde_json",
  "thiserror",
@@ -276,6 +277,14 @@ name = "ald-security"
 version = "0.1.0"
 dependencies = [
  "ald-core",
+]
+
+[[package]]
+name = "ald-serialization-compat"
+version = "0.1.0"
+dependencies = [
+ "ald-core",
+ "serde_json",
 ]
 
 [[package]]

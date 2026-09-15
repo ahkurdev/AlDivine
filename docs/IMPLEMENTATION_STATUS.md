@@ -34,7 +34,7 @@ Legend: IMPLEMENTED | PARTIAL | BLOCKED_EXTERNAL | PLANNED | EXPERIMENTAL
 | Astryn client | client/astryn | IMPLEMENTED | lifecycle state machine, background connect task, bounded graceful shutdown; failures degrade to Failed not panic; 2 tests |
 | Framework | framework/aldivine | IMPLEMENTED | economy (atomic transfer + ledger, money-supply conservation), inventory (weight/stack/nesting limits, rollback on failed transfer), jobs (grades, duty, salary, rank), players (characters, slot limit, unique names); 26 tests |
 | Compatibility (ESX/QB/Qbox) | crates/acl-esx, acl-qbcore, acl-qbox | PARTIAL | LegacyAdapter trait; ESX 4 tests, QBCore 3, Qbox 2; read-only player projections over framework services, honest per-API coverage matrix in docs/compatibility/FIVEM_API_MATRIX.md; mutations server-context only; event/callback/export/command/state-bag adapters still PLANNED |
-| NovaGate | apps/novagate | PLANNED | Tauri |
+|| NovaGate | apps/novagate (novagate-core) | IMPLEMENTED | GTA V install detection (registry/Steam-library/Epic-manifest, decisive 3-file structure check), distribution classification, detection-vs-entitlement separation enforced by type, AldivinePaths layout (%LOCALAPPDATA%/Aldivine, never touches game install), signed update manifests (signature/channel/min-version/downgrade rejection, payload hash verification), server browser state (favorites, bounded dedup history, direct-connect validation); 31 tests |
 | Aegis | aegis/ | PLANNED | Axum + React |
 
 ## Build Environment

@@ -1,0 +1,16 @@
+[package]
+name = "ald-fxmanifest"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+ald-core = { path = "../ald-core" }
+serde = { workspace = true }
+thiserror = { workspace = true }
+toml = { workspace = true }
+
+[lib]
+name = "ald_fxmanifest"
+path = "src/lib.rs"

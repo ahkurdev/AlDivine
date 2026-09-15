@@ -177,6 +177,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ald-fxmanifest"
+version = "0.1.0"
+dependencies = [
+ "ald-core",
+ "serde",
+ "thiserror",
+ "toml",
+]
+
+[[package]]
 name = "ald-identity"
 version = "0.1.0"
 dependencies = [

@@ -64,3 +64,19 @@
   falsely treated as a reserved device name (Windows reserves COM1-9 only);
   depth check ran on raw backslash separators before normalization;
   verify_within rejected the legit Windows absolute-prefix of a canonical root.
+
+## PHASE 9 — fxmanifest compatibility parser (ald-fxmanifest)
+
+- Purpose-built Lua table-literal lexer + parser for fxmanifest.lua / __resource.lua.
+  Deliberately NOT a Lua interpreter: it understands exactly the manifest subset
+  (string/number/boolean scalars, tables, nested tables, long strings, long
+  comments, escapes) and rejects bare identifiers, so a manifest containing real
+  Lua code is a syntax error rather than silently mis-parsed.
+- NormalizedManifest is the single shape the runtime consumes; ald_manifest.toml
+  parses into the same struct.
+- Every directive is classified SUPPORTED / TRANSLATED / IGNORED_WITH_WARNING /
+  UNSUPPORTED and recorded with line number in source order. Unknown metadata is
+  preserved verbatim — nothing is silently dropped, per the master spec.
+- convar_category parses into structured Aegis form metadata (convar, name, help,
+  default, min, max, type) to drive automatic resource configuration UI.
+- 20 tests green; full workspace regression 511 tests, 0 failed.

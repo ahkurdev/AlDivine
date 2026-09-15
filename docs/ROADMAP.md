@@ -92,9 +92,8 @@ BLOCKED_EXTERNAL, NOT_SUPPORTED, PLANNED.
 
 ## Next action
 
-## Next action
-
-PHASE 9: ald-resource-manifest / ald-fxmanifest — NormalizedManifest,
-fxmanifest.lua, __resource.lua, all documented directives (fx_version,
-client_script(s), server_script(s), shared_script(s), ui_page, exports,
-dependency, provide, data_file, level meta, convar_category, OAL flag).
+PHASE 10: ald-script-lua / ald-cfxlua-compat — Lua 5.4 runtime with the
+CfxLua compatibility frontend: vector2/3/4 + quat, backtick joaat-style
+compile-time hashes, json/promise/msgpack globals, Citizen.Await, module
+loading, plus golden behavior tests. Depends on the rquickjs-style embed
+already present in the workspace.

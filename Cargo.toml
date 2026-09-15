@@ -30,6 +30,7 @@ members = [
   "crates/acl-esx",
   "crates/acl-qbcore",
   "crates/acl-qbox",
+  "crates/ald-db-capability",
   "client/astryn",
   "framework/aldivine",
   "server/ald-server",

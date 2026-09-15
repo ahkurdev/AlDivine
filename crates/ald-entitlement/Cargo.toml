@@ -1,0 +1,13 @@
+[package]
+name = "ald-entitlement"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+ald-core = { path = "../ald-core" }
+ald-identity = { path = "../ald-identity" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+ulid.workspace = true

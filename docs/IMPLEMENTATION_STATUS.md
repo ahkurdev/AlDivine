@@ -21,8 +21,11 @@ Legend: IMPLEMENTED | PARTIAL | BLOCKED_EXTERNAL | PLANNED | EXPERIMENTAL
 | Security utils | ald-security | IMPLEMENTED | secret redaction, log sanitization |
 | Telemetry | ald-telemetry | IMPLEMENTED | metrics counters/histograms |
 | Audit | ald-audit | IMPLEMENTED | structured audit events |
-| Database layer | ald-database | IMPLEMENTED | repository trait, pool config, query timing, slow-query detection |
-| Compat abstraction | ald-compat | PARTIAL | ACL trait; ESX/QBCore/Qbox adapters PLANNED |
+|| Database layer | ald-database | IMPLEMENTED | repository trait, pool config, query timing, slow-query detection, RAII transactions with rollback-on-drop, canonical money-transfer tx, deterministic migration runner with drift detection |
+|| Entitlement service | crates/ald-entitlement | IMPLEMENTED | entitlement models (FREE/PAID/SUBSCRIPTION/PRIVATE/DEVELOPER/BETA/INVITE_ONLY), server registration with signed credentials, package entitlement resolution; 13 tests |
+|| Package format + signing | crates/ald-package | IMPLEMENTED | .alpkg manifest, Ed25519 signing over canonical bytes, SHA-256 payload verification, OPEN/SIGNED/PROTECTED/PRIVATE policies, tamper + wrong-key + stale-hash rejection; 10 tests |
+|| Login pipeline | crates/ald-identity/src/pipeline.rs | IMPLEMENTED | identity requirement policy, structured ALD-* connection codes, Epic-owner-not-blocked rule, trusted-proxy IP resolution; 13 tests |
+|| Compat abstraction | ald-compat | PARTIAL | ACL trait; ESX/QBCore/Qbox adapters PLANNED |
 | Lua runtime | crates/ald-script-lua | IMPLEMENTED | mlua 0.10 Lua 5.4 vendored; sandbox removes io/os/package/debug/jit/require/loadfile; 5 tests |
 | JS runtime | crates/ald-script-js | IMPLEMENTED | rquickjs 0.13 QuickJS bindgen; single shared context; 3 tests |
 | Server runtime | server/ald-server | IMPLEMENTED | config-validated startup, AstraNet listener, LifecycleSupervisor (single-writer start/stop/restart via channel, leak detection), console with audited commands, telemetry loop, graceful shutdown with SIGTERM/Ctrl-C; 6 tests |

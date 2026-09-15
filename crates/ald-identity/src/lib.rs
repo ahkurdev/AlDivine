@@ -5,12 +5,14 @@ use serde::{Deserialize, Serialize};
 
 pub mod aggregation;
 pub mod ban;
+pub mod pipeline;
 pub mod provider;
 
 pub use aggregation::{
     DeviceIdentity, EpicIdentity, IdentityAggregation, NetworkIdentity, PlayerIdentity, RockstarIdentity,
 };
 pub use ban::{BanMatchResult, BanMatchSignal};
+pub use pipeline::{ConnectionRejection, IdentityRequirements, PolicyOutcome, TrustedProxies};
 pub use provider::{GameDistribution, GameEntitlementProvider};
 
 /// Canonical entitlement states. Never report Verified without validation.

@@ -6,6 +6,12 @@
 use ald_core::AldError;
 use serde::{Deserialize, Serialize};
 
+pub mod migrations;
+pub mod transaction;
+
+pub use migrations::{AppliedMigration, Migration, MigrationReport, Migrator};
+pub use transaction::{money_transfer_tx, Transaction, TransactionOutcome};
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DbConfig {
     pub url: String,

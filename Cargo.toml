@@ -4,8 +4,9 @@ members = [
   "crates/ald-core",
   "crates/ald-config",
   "crates/ald-protocol",
-  "crates/ald-device-identity",
   "crates/ald-identity",
+  "crates/ald-entitlement",
+  "crates/ald-device-identity",
   "crates/ald-events",
   "crates/ald-rpc",
   "crates/ald-resource",
@@ -22,6 +23,7 @@ members = [
   "crates/ald-script-js",
   "crates/ald-replication",
   "crates/ald-compat",
+  "crates/ald-package",
   "crates/acl-esx",
   "crates/acl-qbcore",
   "crates/acl-qbox",
@@ -49,3 +51,4 @@ hmac = "0.12"
 sha2 = "0.10"
 base64 = "0.22"
 rand = "0.8"
+ed25519-dalek = { version = "2", features = ["rand_core"] }

@@ -1,0 +1,19 @@
+[package]
+name = "ald-edge"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+ald-core = { path = "../ald-core" }
+ald-protocol = { path = "../ald-protocol" }
+ald-query = { path = "../ald-query" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+thiserror = { workspace = true }
+
+[lib]
+name = "ald_edge"
+path = "src/lib.rs"

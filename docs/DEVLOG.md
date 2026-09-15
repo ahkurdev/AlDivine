@@ -18,3 +18,32 @@
   Build Tools + Windows 11 SDK via winget. First `cargo test` runs after install completes.
 - Next: compile + run all crate tests, then proceed to Phase 4 transport (ald-network),
   Phase 9/10 script runtimes, Phase 11 server runtime.
+
+## 2026-09-15 — Master spec alignment + PHASE 5 + PHASE 6
+
+- Adopted the ULTIMATE MASTER SPECIFICATION as single source of truth; ROADMAP
+  rewritten to the 74-phase model with honest per-phase statuses.
+- Baseline verified before new work: full workspace `cargo build` green and
+  336 tests / 0 failures across 68 test binaries.
+- Fixed a real environment bug: the session PATH leaked an incompatible
+  MSVC layout (Program Files/ x86 absent, cl.exe exit 0xc0000017). Builds now
+  run through `.env-build.sh`, which sources the installed
+  14.44.35207 toolchain + Windows 11 SDK 10.0.22621.0 explicitly.
+- PHASE 5 (time sync / negotiation / query): ald-timesync (NTP-style offset +
+  RTT + jitter, clamped interpolation delay, server-authoritative clocks,
+  client time-claim bounds), ald-negotiation (server-authoritative feature
+  negotiation with typed outcomes and structured deprecation UX:
+  ClientTooOld / ServerTooOld / Incompatible carrying UpgradeAction),
+  ald-query (ALDQ probe protocol, bounded JSON with progressive shedding,
+  unlisted servers answer counts only, anti-amplification rate limiter,
+  legacy /info.json /players.json /dynamic.json from one ServerStatus).
+- PHASE 6 (Aldivine Edge): pre-auth admission with per-IP and origin
+  connection caps, banned IP/CIDR, query budget isolated from gameplay,
+  origin shielding (fail_closed + shield_allow_networks), and HMAC-SHA256
+  authenticated real-IP forwarding with freshness window + constant-time
+  compare. SHA-256/HMAC are stdlib-only and verified against FIPS 180-2 and
+  RFC 4231 TC2 vectors rather than asserted by inspection.
+- 49 new tests (10 timesync, 11 negotiation, 13 query, 15 edge). All green.
+- Next: PHASE 8 ald-vfs (@resource/path, sandbox writes, symlink/junction
+  and reparse-point hardening, case-insensitivity, Unicode normalization,
+  reserved Windows device names).

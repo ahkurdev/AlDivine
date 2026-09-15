@@ -143,6 +143,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "ald-edge"
+version = "0.1.0"
+dependencies = [
+ "ald-core",
+ "ald-protocol",
+ "ald-query",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
 name = "ald-entitlement"
 version = "0.1.0"
 dependencies = [
@@ -170,6 +183,17 @@ dependencies = [
  "ald-core",
  "ald-device-identity",
  "serde",
+ "thiserror",
+]
+
+[[package]]
+name = "ald-negotiation"
+version = "0.1.0"
+dependencies = [
+ "ald-core",
+ "ald-protocol",
+ "serde",
+ "serde_json",
  "thiserror",
 ]
 
@@ -215,6 +239,17 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+]
+
+[[package]]
+name = "ald-query"
+version = "0.1.0"
+dependencies = [
+ "ald-core",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
 ]
 
 [[package]]
@@ -317,6 +352,17 @@ name = "ald-telemetry"
 version = "0.1.0"
 dependencies = [
  "ald-core",
+]
+
+[[package]]
+name = "ald-timesync"
+version = "0.1.0"
+dependencies = [
+ "ald-core",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
 ]
 
 [[package]]

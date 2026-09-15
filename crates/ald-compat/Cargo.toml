@@ -1,0 +1,12 @@
+[package]
+name = "ald-compat"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+ald-core = { path = "../ald-core" }
+aldivine-framework = { path = "../../framework/aldivine" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true

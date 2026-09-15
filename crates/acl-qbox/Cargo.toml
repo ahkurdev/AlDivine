@@ -1,0 +1,11 @@
+[package]
+name = "acl-qbox"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+ald-core = { path = "../ald-core" }
+aldivine-framework = { path = "../../framework/aldivine" }
+ald-compat = { path = "../ald-compat" }
+acl-qbcore = { path = "../acl-qbcore" }

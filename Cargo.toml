@@ -1,0 +1,51 @@
+[workspace]
+resolver = "2"
+members = [
+  "crates/ald-core",
+  "crates/ald-config",
+  "crates/ald-protocol",
+  "crates/ald-device-identity",
+  "crates/ald-identity",
+  "crates/ald-events",
+  "crates/ald-rpc",
+  "crates/ald-resource",
+  "crates/ald-scheduler",
+  "crates/ald-permissions",
+  "crates/ald-telemetry",
+  "crates/ald-network",
+  "crates/ald-ecs",
+  "crates/ald-security",
+  "crates/ald-database",
+  "crates/ald-compat",
+  "crates/ald-audit",
+  "crates/ald-script-lua",
+  "crates/ald-script-js",
+  "crates/ald-replication",
+  "crates/ald-compat",
+  "crates/acl-esx",
+  "crates/acl-qbcore",
+  "crates/acl-qbox",
+  "client/astryn",
+  "framework/aldivine",
+  "server/ald-server",
+  "cli/ald",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["Aldivine"]
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+toml = "0.8"
+thiserror = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "macros"] }
+ulid = { version = "1", features = ["serde"] }
+hmac = "0.12"
+sha2 = "0.10"
+base64 = "0.22"
+rand = "0.8"

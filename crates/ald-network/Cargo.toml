@@ -1,0 +1,13 @@
+[package]
+name = "ald-network"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+thiserror.workspace = true
+rand.workspace = true
+ald-core = { path = "../ald-core" }
+ald-protocol = { path = "../ald-protocol" }
+tokio = { workspace = true, features = ["net", "rt", "sync", "macros", "time"] }

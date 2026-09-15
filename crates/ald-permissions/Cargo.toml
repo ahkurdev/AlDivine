@@ -1,0 +1,9 @@
+[package]
+name = "ald-permissions"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+ald-core = { path = "../ald-core" }

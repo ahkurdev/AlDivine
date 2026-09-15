@@ -1,0 +1,15 @@
+[package]
+name = "ald"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "ald"
+path = "src/main.rs"
+
+[dependencies]
+ald-core = { path = "../../crates/ald-core" }
+ald-config = { path = "../../crates/ald-config" }
+ald-resource = { path = "../../crates/ald-resource" }
+toml.workspace = true

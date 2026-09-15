@@ -1,0 +1,30 @@
+# Aldivine Server Configuration (server.toml)
+# Validate with: ald config validate server.toml
+
+[server]
+name = "Aldivine Default Server"
+max_players = 64
+description = "Reference server configuration"
+
+[network]
+bind = "0.0.0.0:30120"
+protocol_version = 1
+# trusted_proxies = ["10.0.0.0/24"]
+
+[identity]
+require_aldivine_account = false
+require_gta_entitlement = false
+require_rockstar = false
+require_steam = false
+require_epic = false
+require_device_id = true
+record_connection_ip = true
+
+[security]
+max_connections_per_ip = 8
+enable_astranet_firewall = true
+global_event_rate_limit = 1000
+
+[runtime]
+worker_threads = 4
+max_resources = 256

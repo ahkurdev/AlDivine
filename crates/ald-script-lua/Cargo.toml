@@ -1,0 +1,9 @@
+[package]
+name = "ald-script-lua"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+ald-core = { path = "../ald-core" }
+mlua = { version = "0.10", features = ["lua54", "vendored"] }

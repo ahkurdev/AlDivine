@@ -1,0 +1,24 @@
+# Aldivine Resource Manifest
+
+name = "example-native-resource"
+version = "0.1.0"
+author = "Aldivine"
+description = "Example native resource demonstrating the manifest format"
+license = "MIT"
+minimum_runtime = "0.1.0"
+
+[dependencies]
+
+capabilities = [
+    "filesystem.read",
+    "network.http",
+    "player.read",
+]
+
+client_scripts = ["client/main.lua"]
+server_scripts = ["server/main.lua"]
+shared_scripts = ["shared/util.lua"]
+
+[[exports]]
+# resources may export named functions for inter-resource RPC
+name = "getVersion"

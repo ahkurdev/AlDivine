@@ -1,0 +1,11 @@
+[package]
+name = "ald-identity"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+thiserror.workspace = true
+ald-core = { path = "../ald-core" }
+ald-device-identity = { path = "../ald-device-identity" }

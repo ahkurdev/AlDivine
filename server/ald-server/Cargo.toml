@@ -1,0 +1,16 @@
+[package]
+name = "ald-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+ald-core = { path = "../../crates/ald-core" }
+ald-config = { path = "../../crates/ald-config" }
+ald-network = { path = "../../crates/ald-network" }
+ald-resource = { path = "../../crates/ald-resource" }
+ald-telemetry = { path = "../../crates/ald-telemetry" }
+tokio = { workspace = true, features = ["rt-multi-thread", "sync", "time", "macros", "signal", "io-std"] }
+anyhow.workspace = true
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }

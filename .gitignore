@@ -1,0 +1,14 @@
+# Build artifacts
+/target
+**/*.rs.bk
+*.pdb
+
+# Secrets
+.env
+.env.local
+*.key
+secrets/
+
+# Tooling state
+.DS_Store
+.idea/

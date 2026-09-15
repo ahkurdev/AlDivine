@@ -1,0 +1,9 @@
+[package]
+name = "ald-ecs"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+ald-core = { path = "../ald-core" }
+serde.workspace = true

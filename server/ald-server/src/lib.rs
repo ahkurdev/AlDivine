@@ -18,6 +18,9 @@ use tokio::sync::{mpsc, watch};
 
 use crate::lifecycle::LifecycleSupervisor;
 
+pub mod admission;
+pub mod aegis_api;
+pub mod config_loader;
 pub mod console;
 pub mod lifecycle;
 pub mod state;
@@ -79,16 +82,46 @@ impl Server {
             net_state.network_loop(&listener).await;
         });
 
-        // Auto-discover and queue resource startup
-        let search_dirs =
-            [std::path::PathBuf::from(&state.config().resources.directory), std::path::PathBuf::from("base-resources")];
+        // Aegis management API on localhost only.
+        let aegis_state = Arc::clone(&state);
+        let aegis_tx = lifecycle_tx.clone();
+        tokio::spawn(async move {
+            if let Err(e) = crate::aegis_api::serve(aegis_state, aegis_tx, "127.0.0.1:40120").await {
+                tracing::warn!(error = %e, "aegis api exited");
+            }
+        });
+
+        // Auto-discover and queue resource startup; publish the negotiated
+        // manifest (name + SHA-256 + size) into admission so clients compare
+        // cache against the exact bytes the server will run.
+        let search_dirs = [
+            std::path::PathBuf::from(&state.config().resources.directory),
+            std::path::PathBuf::from("base-resources"),
+            std::path::PathBuf::from("../../base-resources"),
+        ];
+        let mut manifest_entries: Vec<ald_protocol::ResourceEntry> = Vec::new();
         for dir in &search_dirs {
             if dir.is_dir() {
                 if let Ok(entries) = std::fs::read_dir(dir) {
                     for entry in entries.flatten() {
                         let path = entry.path();
-                        if path.is_dir() && path.join("ald_manifest.toml").exists() {
+                        let manifest_path = path.join("ald_manifest.toml");
+                        if path.is_dir() && manifest_path.exists() {
                             if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                                if manifest_entries.iter().any(|e| e.name == name) {
+                                    continue;
+                                }
+                                if let Ok(bytes) = std::fs::read(&manifest_path) {
+                                    use sha2::{Digest, Sha256};
+                                    let mut hasher = Sha256::new();
+                                    hasher.update(&bytes);
+                                    let hash = format!("{:x}", hasher.finalize());
+                                    manifest_entries.push(ald_protocol::ResourceEntry {
+                                        name: name.to_string(),
+                                        hash,
+                                        size: bytes.len() as u64,
+                                    });
+                                }
                                 tracing::info!(resource = %name, "queueing resource startup");
                                 let _ = lifecycle_tx.send(LifecycleCommand::Start(name.to_string()));
                             }
@@ -96,6 +129,11 @@ impl Server {
                     }
                 }
             }
+        }
+        {
+            let adm = state.admission().clone();
+            let mut guard = adm.lock().await;
+            guard.set_manifest(manifest_entries);
         }
 
         tracing::info!(elapsed_ms = started.elapsed().as_millis() as u64, "server ready");

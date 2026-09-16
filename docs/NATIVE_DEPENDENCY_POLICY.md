@@ -43,3 +43,13 @@ runtime and no C toolchain.
 3. Extend `DENY`/`AUDITED_ROOTS` in `cli/ald/src/audit.rs` if the native
    profile must exclude it.
 4. Run `ald dependencies audit-native` green before claiming isolation.
+
+## Script hosts are cargo features, not default deps
+
+`ald-server` orchestrates script runtimes but must not compile C code in its
+default closure: `ald-script-lua` and `mlua` are optional dependencies behind
+`--features lua`. The lifecycle executes real Lua only when the feature is on;
+without it, resource start fails honestly ("rebuild with --features lua").
+`cargo tree -p ald-server` (default) stays C-free so `audit-native` keeps
+passing unmodified; CI additionally runs the full suite with `--features lua`
+plus the loopback vertical e2e. Same pattern applies when Node/CLR hosts land.

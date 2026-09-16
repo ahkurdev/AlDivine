@@ -1,15 +1,12 @@
-use ald_config::Config;
 use ald_core::{install_crash_handler, DiagnosticLogger};
+use ald_server::config_loader::{load_config, resolve_config_path};
 use ald_server::Server;
 use anyhow::Result;
 use std::env;
-use std::fs;
-use std::path::Path;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Install panic hook to write stack traces to logs/ald-server_crash.log
     install_crash_handler("logs", "ald-server");
     let logger = DiagnosticLogger::new("logs", "server.log");
 
@@ -31,22 +28,9 @@ async fn main() -> Result<()> {
         return Ok(());
     }
 
-    let config_path = args
-        .iter()
-        .position(|a| a == "--config" || a == "-c")
-        .and_then(|p| args.get(p + 1))
-        .map(|s| s.as_str())
-        .unwrap_or("server.toml");
-
-    let config = if Path::new(config_path).exists() {
-        logger.info("config", &format!("Loading configuration from: {}", config_path));
-        let s = fs::read_to_string(config_path)?;
-        Config::from_toml(&s)?
-    } else {
-        logger.warn("config", &format!("Configuration file '{}' not found, using default configuration.", config_path));
-        Config::default()
-    };
-
+    let (path, source) = resolve_config_path(&args);
+    logger.info("config", &format!("Config source: {}", source.describe()));
+    let config = load_config(path.as_deref(), &source)?;
     logger.info("config", &format!("Server Name: {}", config.server.name));
     logger.info("config", &format!("Max Players: {}", config.server.max_players));
     logger.info("network", &format!("AstraNet Binding: {}", config.network.bind));

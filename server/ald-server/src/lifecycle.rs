@@ -37,20 +37,35 @@ impl LifecycleSupervisor {
     }
 
     async fn transition_start(&self, name: &str) {
-        let mut l = self.state.lifecycle().lock().await;
-        if !l.can_start(name) {
-            tracing::warn!(resource = name, "start rejected: not in Stopped/Failed");
-            return;
+        {
+            let l = self.state.lifecycle().lock().await;
+            if !l.can_start(name) {
+                tracing::warn!(resource = name, "start rejected: not in Stopped/Failed");
+                return;
+            }
         }
-        l.set(name, ald_resource::ResourceState::Starting);
-        // ponytail: script execution not yet wired; the runtime will
-        // populate real handle counts when script hosts are integrated.
-        match l.mark_running(name, 0) {
-            Ok(()) => {
-                self.state.metrics().incr("resources.started", 1);
-                tracing::info!(resource = name, "resource started");
+        {
+            let mut l = self.state.lifecycle().lock().await;
+            l.set(name, ald_resource::ResourceState::Starting);
+        }
+        let resource_dir = self.state.config().resources.directory.clone();
+        match start_resource_scripts(name, &resource_dir) {
+            Ok(handles) => {
+                let mut l = self.state.lifecycle().lock().await;
+                match l.mark_running(name, handles) {
+                    Ok(()) => {
+                        self.state.metrics().incr("resources.started", 1);
+                        tracing::info!(resource = name, handles, "resource started");
+                    }
+                    Err(e) => {
+                        l.set(name, ald_resource::ResourceState::Failed);
+                        self.state.metrics().incr("resources.start_failures", 1);
+                        tracing::error!(resource = name, error = %e, "resource failed to start");
+                    }
+                }
             }
             Err(e) => {
+                let mut l = self.state.lifecycle().lock().await;
                 l.set(name, ald_resource::ResourceState::Failed);
                 self.state.metrics().incr("resources.start_failures", 1);
                 tracing::error!(resource = name, error = %e, "resource failed to start");
@@ -61,6 +76,9 @@ impl LifecycleSupervisor {
     async fn transition_stop(&self, name: &str) {
         let mut l = self.state.lifecycle().lock().await;
         l.set(name, ald_resource::ResourceState::Stopping);
+        for _ in 0..4096 {
+            l.release_handle(name);
+        }
         match l.stop(name) {
             Ok(()) => {
                 self.state.metrics().incr("resources.stopped", 1);
@@ -80,11 +98,66 @@ impl LifecycleSupervisor {
     }
 }
 
+#[cfg(feature = "lua")]
+fn resource_root(name: &str, configured: &str) -> Option<std::path::PathBuf> {
+    for base in [configured, "base-resources", "../../base-resources"] {
+        let root = std::path::PathBuf::from(base).join(name);
+        if root.join("ald_manifest.toml").is_file() {
+            return Some(root);
+        }
+    }
+    None
+}
+
+// The Lua script host is an isolated native boundary: it compiles only with
+// `--features lua`, so the default `ald-server` closure stays free of C code
+// and `ald dependencies audit-native` keeps passing on the default build.
+#[cfg(feature = "lua")]
+fn start_resource_scripts(name: &str, configured_dir: &str) -> Result<usize, String> {
+    let root = resource_root(name, configured_dir).ok_or_else(|| format!("manifest not found for '{name}'"))?;
+    let text = std::fs::read_to_string(root.join("ald_manifest.toml")).map_err(|e| format!("read manifest: {e}"))?;
+    let manifest = ald_resource::Manifest::parse(&text).map_err(|e| format!("parse manifest: {e}"))?;
+    if manifest.server_scripts.is_empty() {
+        return Ok(0);
+    }
+    let rt = ald_script_lua::LuaRuntime::new().map_err(|e| format!("lua init: {e}"))?;
+    rt.register_api_version("v1").map_err(|e| format!("lua api: {e}"))?;
+    let lua = rt.lua();
+    let globals = lua.globals();
+    let events = lua.create_table().map_err(|e| format!("lua events table: {e}"))?;
+    let on_fn = lua
+        .create_function(|_, (_event, _cb): (String, mlua::Value)| Ok(()))
+        .map_err(|e| format!("lua on bind: {e}"))?;
+    let emit_fn = lua
+        .create_function(|_, (_event, _payload): (String, mlua::Value)| Ok(()))
+        .map_err(|e| format!("lua emit bind: {e}"))?;
+    events.set("on", on_fn).map_err(|e| format!("lua events.on: {e}"))?;
+    events.set("emit", emit_fn).map_err(|e| format!("lua events.emit: {e}"))?;
+    let aldivine = lua.create_table().map_err(|e| format!("lua aldivine table: {e}"))?;
+    aldivine.set("Events", events).map_err(|e| format!("lua aldivine.events: {e}"))?;
+    globals.set("Aldivine", aldivine).map_err(|e| format!("lua global: {e}"))?;
+    let mut loaded = 0usize;
+    for script in &manifest.server_scripts {
+        let path = root.join(script);
+        let src = std::fs::read_to_string(&path).map_err(|e| format!("read {}: {e}", path.display()))?;
+        rt.exec(&src).map_err(|e| format!("exec {}: {e}", path.display()))?;
+        loaded += 1;
+    }
+    Ok(loaded)
+}
+
+#[cfg(not(feature = "lua"))]
+fn start_resource_scripts(name: &str, _configured_dir: &str) -> Result<usize, String> {
+    Err(format!("resource '{name}' needs the lua script host (rebuild with --features lua)"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(feature = "lua")]
     use ald_config::Config;
 
+    #[cfg(feature = "lua")]
     fn dummy() -> (Arc<ServerState>, mpsc::UnboundedSender<LifecycleCommand>, LifecycleSupervisor) {
         let (shutdown_tx, _rx) = tokio::sync::watch::channel(false);
         let state = Arc::new(ServerState::new(Config::default(), shutdown_tx));
@@ -96,13 +169,14 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(feature = "lua")]
     async fn start_stop_roundtrip() {
         let (state, _tx, supervisor) = dummy();
         let (tx2, rx2) = mpsc::unbounded_channel();
         let handle = tokio::spawn(async move { supervisor.run(rx2).await });
-        tx2.send(LifecycleCommand::Start("test-res".into())).unwrap();
+        tx2.send(LifecycleCommand::Start("spawn".into())).unwrap();
         // Allow the supervisor task to process.
-        for _ in 0..20 {
+        for _ in 0..40 {
             if state.running_count().await == 1 {
                 break;
             }
@@ -110,7 +184,7 @@ mod tests {
         }
         assert_eq!(state.running_count().await, 1);
 
-        tx2.send(LifecycleCommand::Stop("test-res".into())).unwrap();
+        tx2.send(LifecycleCommand::Stop("spawn".into())).unwrap();
         for _ in 0..20 {
             if state.running_count().await == 0 {
                 break;
@@ -120,5 +194,24 @@ mod tests {
         assert_eq!(state.running_count().await, 0);
         drop(tx2);
         handle.await.unwrap();
+    }
+
+    #[test]
+    #[cfg(feature = "lua")]
+    fn spawn_scripts_load() {
+        let n = start_resource_scripts("spawn", "resources").expect("spawn scripts must load");
+        assert!(n >= 1);
+    }
+
+    #[test]
+    #[cfg(not(feature = "lua"))]
+    fn start_requires_lua_feature() {
+        let err = start_resource_scripts("spawn", "resources").unwrap_err();
+        assert!(err.contains("--features lua"));
+    }
+
+    #[test]
+    fn missing_resource_fails_honestly() {
+        assert!(start_resource_scripts("no-such-resource-xyz", "resources").is_err());
     }
 }

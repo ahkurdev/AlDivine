@@ -11,12 +11,21 @@ If a single gate fails or is marked skipped / external blocker, Aldivine does NO
 
 ## Matrix: Aldivine v0.1.0-RC1 Certified Matrix (`matrix-2026-v1`)
 
+## Evidence tiers
+
+- SYNTHETIC PASS: unit/integration test against doubles or synthetic data.
+- INTEGRATION PASS: real components wired together (loopback, no game).
+- REAL RUNTIME PASS: exercised against the live target (GTA, real DB).
+- BLOCKED_EXTERNAL: needs a target unavailable on this box. Never counted as PASS.
+
 | Subsystem / Gate | Target / Build | Certified Status | Notes |
 |---|---|---|---|
 | **Host Build** | Windows 11 x86_64 | **PASS** | Toolchain pinned to 1.98.1 in `rust-toolchain.toml` |
 | **Native Dependency Audit** | `ald-server` | **PASS** | 0 unexpected C/C++ dependencies in core closure |
-| **GTA Legacy Support** | Build 2699 | **PASS** | Build definition registered; synthetic tests pass |
-| **GTA Enhanced Support** | Build 3095 | **PASS** | Build definition registered; synthetic tests pass |
+| **Vertical Join (non-GTA)** | Astryn -> Server loopback | **INTEGRATION PASS** | `vertical_e2e`: Hello/Auth/Identity/Deferral/Queue/Manifest/Ready, client Running, framework online >= 1 |
+| **Aegis HTTP API** | 127.0.0.1:40120 | **INTEGRATION PASS** | health/status/resources + real lifecycle actions; React UI PLANNED |
+| **GTA Legacy Support** | Build 2699 | **SYNTHETIC PASS** | Build definition registered; real Game Bridge BLOCKED_EXTERNAL |
+| **GTA Enhanced Support** | Build 3095 | **SYNTHETIC PASS** | Build definition registered; real Game Bridge BLOCKED_EXTERNAL |
 | **CfxLua Profile** | Lua 5.4 Compat | **PASS** | Vector math, joaat, JSON, msgpack, promise/await verified |
 | **Native Client JS** | QuickJS Embed | **PASS** | Sandboxed Citizen client surface verified |
 | **Node.js Compatibility** | Node 16 / 22 | **PARTIAL** | Engine-independent resolution pass; native V8 host isolated |
@@ -25,11 +34,11 @@ If a single gate fails or is marked skipped / external blocker, Aldivine does NO
 | **Citizen Event Surface** | Reliable & Unreliable | **PASS** | RegisterNetEvent, AddEventHandler, TriggerEvent pass |
 | **State Bags** | Strict Ownership | **PASS** | GlobalState, Entity, Player state bags verified |
 | **Routing Buckets** | Dimensions 1:1 | **PASS** | Dimension isolation and bucket lockdowns pass |
-| **Asset Formats** | .ytd, .yft, .ydd, .ydr | **PASS** | Format headers and magic bytes verified in registry |
-| **DataFile Registry** | vehicles, handling, etc. | **PASS** | Vehicle/handling/carcols archetype graph verified |
-| **Database: PostgreSQL** | PostgreSQL 14..16 | **PASS** | Conformance suite: transactions, JSON, reconnect |
-| **Database: MySQL** | MySQL 8.0+ | **PASS** | Conformance suite: deadlock retries, auto-ids |
-| **Database: MariaDB** | MariaDB 10.6+ | **PASS** | Conformance suite: migration locks, upserts |
+| **Asset Formats** | .ytd, .yft, .ydd, .ydr | **SYNTHETIC PASS (recognition)** | Extension/stream-class recognition; content validation + game mount BLOCKED_EXTERNAL |
+| **DataFile Registry** | vehicles, handling, etc. | **SYNTHETIC PASS (recognition)** | Vehicle/handling/carcols graph seed; game registration BLOCKED_EXTERNAL |
+| **Database: PostgreSQL** | PostgreSQL 14..16 | **SYNTHETIC PASS** | Capability/conformance doubles green; live server conformance BLOCKED_EXTERNAL |
+| **Database: MySQL** | MySQL 8.0+ | **SYNTHETIC PASS** | Capability/conformance doubles green; live server conformance BLOCKED_EXTERNAL |
+| **Database: MariaDB** | MariaDB 10.6+ | **SYNTHETIC PASS** | Capability/conformance doubles green; live server conformance BLOCKED_EXTERNAL |
 | **ACL: ESX Adapter** | v1.Final / Legacy | **PASS** | Read-only projection of xPlayer, jobs, accounts |
 | **ACL: QBCore Adapter** | QBCore standard | **PASS** | Read-only projection of Player, items, money |
 | **ACL: Qbox Adapter** | Qbox standard | **PASS** | Read-only projection of Player state and exports |

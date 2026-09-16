@@ -5,10 +5,15 @@
 
 pub mod channel;
 pub mod event;
+pub mod handshake;
 pub mod packet;
 
 pub use channel::Channel;
 pub use event::{decode_event, encode_event, EventEnvelope};
+pub use handshake::{
+    HandshakeMessage, HandshakeState, ResourceEntry, REJECT_AUTH, REJECT_DEFERRAL, REJECT_ENTITLEMENT, REJECT_IDENTITY,
+    REJECT_PROTOCOL, REJECT_SERVER_FULL,
+};
 pub use packet::{
     decode_packet, encode_packet, Packet, PacketHeader, FLAG_ORDERED, FLAG_RELIABLE, HEADER_LEN, MAX_PAYLOAD,
 };

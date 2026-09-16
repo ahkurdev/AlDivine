@@ -829,3 +829,24 @@ Created `crates/ald-compat-lab` (10/10 tests):
 - Clippy: 0 warnings across workspace (`cargo clippy --workspace --all-targets`).
 - Formatting: `cargo fmt --all -- --check` clean.
 - Final workspace regression: 971 passed / 0 failed. Project Aldivine v0.1.0-RC1 achieved.
+
+## 2026-09-16 — Vertical remediation: server admission, real handshake, Lua execution, Aegis API, e2e
+
+- Added shared handshake wire (`ald-protocol::handshake`): tagged
+  HandshakeMessage + HandshakeState + reject codes + ResourceEntry; 17 tests.
+- Server: new `admission` (Hello/Challenge/Auth/Identity+policy/Deferral/Queue/
+  Manifest/Ready state machine, 9 tests), `config_loader` (server.cfg
+  first-class: --config/server.cfg/server.toml/default, 4 tests), real channel
+  dispatch in `network_loop` (Auth drives admission, bad packets counted not
+  fatal), SHA-256 resource manifest published to admission, framework
+  PlayerService join on ServerReady, Aegis Axum API on 127.0.0.1:40120 (5 tests,
+  public bind refused). `spawn` Lua server scripts execute for real in the
+  sandboxed runtime; missing resources fail honestly.
+- Astryn: real UDP handshake walk; Running only on ServerReady world_join.
+  No-server never reaches Running (test), bad address fails without panic.
+- `server/ald-server/tests/vertical_e2e.rs`: loopback join reaches Running and
+  registers framework player (online >= 1). Server 29 lib tests green.
+- Docs: new `docs/VERTICAL_INTEGRATION.md`; honesty pass on
+  IMPLEMENTATION_STATUS (Astryn split, queue/deferrals wired, assets
+  recognition-only) and SUPPORT_MATRIX (evidence tiers, synthetic vs
+  integration); `server.cfg.example`; `.github/workflows/ci.yml`.

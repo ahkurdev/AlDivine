@@ -1,0 +1,19 @@
+# Aldivine server.cfg — first-class operator configuration.
+# server.toml with the same values remains supported; both converge to
+# NormalizedServerConfig. Resolution order: --config, server.cfg, server.toml.
+
+sv_hostname "Aldivine Community Server"
+sv_projectName "Aldivine"
+sv_projectDesc "Official Aldivine GTA V Multiplayer Server"
+sv_maxclients 64
+sv_gameBuild 3095
+
+endpoint_add_udp "0.0.0.0:30120"
+
+ensure spawn
+ensure chat
+ensure session
+ensure loading
+ensure commands
+ensure help
+ensure devtools

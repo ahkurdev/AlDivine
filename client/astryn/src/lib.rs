@@ -110,22 +110,26 @@ impl AstrynClient {
 /// Background connect task: resolves identities, opens AstraNet, transitions
 /// state. Connection failures set `Failed` rather than panicking — the user
 /// gets a retry in the launcher instead of a crash.
+///
+/// The client walks the real admission pipeline and reaches `Running` only
+/// after the server sends `ServerReady { world_join: true }`. A bound socket
+/// alone never promotes the client past `Connecting`/`Loading`.
 async fn run_connect_task(
     state: Arc<std::sync::Mutex<ClientState>>,
     addr: String,
     mut shutdown: watch::Receiver<bool>,
 ) {
+    use ald_protocol::{Channel, HandshakeMessage, Packet, PacketHeader, PROTOCOL_VERSION};
+    use std::net::SocketAddr;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
     let transition = |s: &Arc<std::sync::Mutex<ClientState>>, next: ClientState| {
         *s.lock().unwrap() = next;
     };
+    let now_ms = || SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0);
 
-    // ponytail: identity resolution (device id + platform providers) is
-    // wired here once ald-identity's async session API lands.
     transition(&state, ClientState::Connecting);
 
-    // Bind an ephemeral socket and probe the server. This exercises the real
-    // transport; a server that does not answer leaves the client Connecting,
-    // which is correct behaviour for a probe loop.
     let transport = match ald_network::UdpTransport::bind("0.0.0.0:0").await {
         Ok(t) => t,
         Err(e) => {
@@ -135,9 +139,6 @@ async fn run_connect_task(
         }
     };
 
-    // Send a CONTROL-channel handshake. The server validates; we wait for a
-    // session reply (not modelled here) then move to Loading.
-    use std::net::SocketAddr;
     let peer: SocketAddr = match addr.parse() {
         Ok(p) => p,
         Err(e) => {
@@ -147,29 +148,233 @@ async fn run_connect_task(
         }
     };
 
+    let send = |msg: &HandshakeMessage, session_id: u64| {
+        let payload = msg.encode().unwrap_or_default();
+        Packet {
+            header: PacketHeader {
+                protocol_version: PROTOCOL_VERSION,
+                session_id,
+                channel: Channel::Auth,
+                sequence: 0,
+                tick: 0,
+                timestamp_ms: now_ms(),
+                flags: 0,
+                payload_len: payload.len() as u32,
+            },
+            payload,
+        }
+    };
+
+    async fn recv_handshake(
+        transport: &ald_network::UdpTransport,
+        shutdown: &mut watch::Receiver<bool>,
+        timeout_ms: u64,
+    ) -> Option<HandshakeMessage> {
+        tokio::select! {
+            res = tokio::time::timeout(std::time::Duration::from_millis(timeout_ms), transport.recv()) => {
+                match res {
+                    Ok(Ok((packet, _))) => HandshakeMessage::decode(&packet.payload).ok(),
+                    _ => None,
+                }
+            }
+            _ = shutdown.changed() => None,
+        }
+    }
+
+    if *shutdown.borrow() {
+        transition(&state, ClientState::Idle);
+        return;
+    }
+
+    let hello = HandshakeMessage::ClientHello {
+        protocol_version: PROTOCOL_VERSION,
+        build: 3095,
+        edition: "Enhanced".into(),
+        client_version: env!("CARGO_PKG_VERSION").to_string(),
+    };
+    let mut session_id = 0u64;
+    let mut nonce = String::new();
+    let mut got_hello = false;
+    for _ in 0..3 {
+        if *shutdown.borrow() {
+            transition(&state, ClientState::Idle);
+            return;
+        }
+        let p = send(&hello, 0);
+        if transport.send(&p, peer).await.is_err() {
+            break;
+        }
+        // The server answers with ServerHello then AuthChallenge as two packets.
+        if let Some(msg) = recv_handshake(&transport, &mut shutdown, 1500).await {
+            match msg {
+                HandshakeMessage::ServerHello { session_id: sid, .. } => {
+                    session_id = sid;
+                    if let Some(HandshakeMessage::AuthChallenge { nonce: n }) =
+                        recv_handshake(&transport, &mut shutdown, 1500).await
+                    {
+                        nonce = n;
+                        got_hello = true;
+                        break;
+                    }
+                }
+                HandshakeMessage::Reject { code, reason } => {
+                    tracing::warn!(%code, %reason, "astryn: hello rejected");
+                    transition(&state, ClientState::Failed);
+                    return;
+                }
+                _ => {}
+            }
+        }
+    }
+    if !got_hello {
+        tracing::warn!("astryn: no ServerHello; staying out of Running");
+        transition(&state, ClientState::Failed);
+        return;
+    }
+
+    let aldivine_id = ald_core::AldivinePlayerId::new().to_string();
+    let auth = HandshakeMessage::ClientAuth {
+        aldivine_id: aldivine_id.clone(),
+        token: None,
+        platform: None,
+        challenge_response: Some(nonce),
+    };
+    {
+        let p = send(&auth, session_id);
+        if transport.send(&p, peer).await.is_err() {
+            transition(&state, ClientState::Failed);
+            return;
+        }
+    }
+    let mut authed = false;
+    for _ in 0..4 {
+        match recv_handshake(&transport, &mut shutdown, 1500).await {
+            Some(HandshakeMessage::AuthResult { accepted: true, .. }) => {
+                authed = true;
+            }
+            Some(HandshakeMessage::IdentityRequest) if authed => break,
+            Some(HandshakeMessage::Reject { code, reason }) => {
+                tracing::warn!(%code, %reason, "astryn: auth rejected");
+                transition(&state, ClientState::Failed);
+                return;
+            }
+            Some(_) => {}
+            None => {
+                if *shutdown.borrow() {
+                    transition(&state, ClientState::Idle);
+                    return;
+                }
+            }
+        }
+    }
+    if !authed {
+        transition(&state, ClientState::Failed);
+        return;
+    }
+    transition(&state, ClientState::Loading);
+
+    let id_resp = HandshakeMessage::IdentityResponse {
+        aldivine_id: aldivine_id.clone(),
+        platform_id: None,
+        entitlement: "FREE".into(),
+        device_id: Some(format!("ephemeral-{}-{}", std::process::id(), now_ms())),
+    };
+    {
+        let p = send(&id_resp, session_id);
+        if transport.send(&p, peer).await.is_err() {
+            transition(&state, ClientState::Failed);
+            return;
+        }
+    }
+    let mut deferral_done = false;
+    for _ in 0..6 {
+        match recv_handshake(&transport, &mut shutdown, 1500).await {
+            Some(HandshakeMessage::DeferralDone) => {
+                deferral_done = true;
+                break;
+            }
+            Some(HandshakeMessage::DeferralUpdate { .. }) => {}
+            Some(HandshakeMessage::EntitlementRequest) => {}
+            Some(HandshakeMessage::Reject { code, reason }) => {
+                tracing::warn!(%code, %reason, "astryn: identity rejected");
+                transition(&state, ClientState::Failed);
+                return;
+            }
+            Some(_) => {}
+            None => {
+                if *shutdown.borrow() {
+                    transition(&state, ClientState::Idle);
+                    return;
+                }
+            }
+        }
+    }
+    if !deferral_done {
+        transition(&state, ClientState::Failed);
+        return;
+    }
+
+    {
+        let p = send(&HandshakeMessage::EntitlementRequest, session_id);
+        let _ = transport.send(&p, peer).await;
+    }
+    let mut entitled = false;
+    for _ in 0..4 {
+        match recv_handshake(&transport, &mut shutdown, 1500).await {
+            Some(HandshakeMessage::EntitlementResult { .. }) => {
+                entitled = true;
+                break;
+            }
+            Some(HandshakeMessage::Reject { code, reason }) => {
+                tracing::warn!(%code, %reason, "astryn: entitlement rejected");
+                transition(&state, ClientState::Failed);
+                return;
+            }
+            Some(_) => {}
+            None => {
+                if *shutdown.borrow() {
+                    transition(&state, ClientState::Idle);
+                    return;
+                }
+            }
+        }
+    }
+    if !entitled {
+        transition(&state, ClientState::Failed);
+        return;
+    }
+
+    {
+        let p = send(&HandshakeMessage::ClientReady, session_id);
+        let _ = transport.send(&p, peer).await;
+    }
     loop {
         if *shutdown.borrow() {
             transition(&state, ClientState::Idle);
             return;
         }
-        match transport.local_addr() {
-            Ok(local) => {
-                tracing::debug!(%local, %peer, "astryn: transport ready");
-                transition(&state, ClientState::Loading);
-                // ponytail: await AUTH reply, then Running. For now the
-                // handshake is fire-and-forget and we settle at Loading so
-                // shutdown/telemetry paths are exercised end to end.
+        match recv_handshake(&transport, &mut shutdown, 2000).await {
+            Some(HandshakeMessage::ServerReady { world_join: true }) => {
                 transition(&state, ClientState::Running);
                 return;
             }
-            Err(e) => {
-                tracing::warn!(error = %e, "astryn: transport not ready; retrying");
+            Some(HandshakeMessage::ServerReady { world_join: false }) => {}
+            Some(HandshakeMessage::QueueUpdate { .. }) => {}
+            Some(HandshakeMessage::QueueAdmitted) => {}
+            Some(HandshakeMessage::ManifestOffer { .. }) => {}
+            Some(HandshakeMessage::Reject { code, reason }) => {
+                tracing::warn!(%code, %reason, "astryn: join rejected");
+                transition(&state, ClientState::Failed);
+                return;
             }
-        }
-        tokio::select! {
-            _ = tokio::time::sleep(std::time::Duration::from_millis(100)) => {}
-            _ = shutdown.changed() => {
-                transition(&state, ClientState::Idle);
+            Some(_) => {}
+            None => {
+                if *shutdown.borrow() {
+                    transition(&state, ClientState::Idle);
+                    return;
+                }
+                tracing::warn!("astryn: join timed out waiting for ServerReady");
+                transition(&state, ClientState::Failed);
                 return;
             }
         }
@@ -181,16 +386,10 @@ mod tests {
     use super::*;
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn lifecycle_bootstraps_and_stops() {
-        let client = AstrynClient::start(ClientConfig { server_addr: "127.0.0.1:30120".into(), ..Default::default() });
-        // The connect task should reach Running quickly against the loopback probe.
-        for _ in 0..50 {
-            if client.state() == ClientState::Running {
-                break;
-            }
-            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-        }
-        assert_eq!(client.state(), ClientState::Running);
+    async fn no_server_never_reaches_running() {
+        let client = AstrynClient::start(ClientConfig { server_addr: "127.0.0.1:30199".into(), ..Default::default() });
+        tokio::time::sleep(std::time::Duration::from_millis(600)).await;
+        assert_ne!(client.state(), ClientState::Running);
         let mut client = client;
         client.shutdown().await.unwrap();
         assert_eq!(client.state(), ClientState::Idle);

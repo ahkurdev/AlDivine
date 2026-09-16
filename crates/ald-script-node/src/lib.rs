@@ -762,10 +762,6 @@ mod tests {
             }
             self
         }
-        fn dir(mut self, path: &str) -> Self {
-            self.dirs.insert(path.to_string());
-            self
-        }
     }
 
     impl NodeFileSource for MemTree {

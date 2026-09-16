@@ -10,11 +10,33 @@ ald-config = { path = "../../crates/ald-config" }
 ald-network = { path = "../../crates/ald-network" }
 ald-resource = { path = "../../crates/ald-resource" }
 ald-telemetry = { path = "../../crates/ald-telemetry" }
-tokio = { workspace = true, features = ["rt-multi-thread", "sync", "time", "macros", "signal", "io-std"] }
+ald-protocol = { path = "../../crates/ald-protocol" }
+ald-identity = { path = "../../crates/ald-identity" }
+ald-entitlement = { path = "../../crates/ald-entitlement" }
+ald-queue = { path = "../../crates/ald-queue" }
+ald-deferrals = { path = "../../crates/ald-deferrals" }
+ald-servercfg = { path = "../../crates/ald-servercfg" }
+ald-script-lua = { path = "../../crates/ald-script-lua", optional = true }
+ald-events = { path = "../../crates/ald-events" }
+ald-state = { path = "../../crates/ald-state" }
+aldivine-framework = { path = "../../framework/aldivine" }
+tokio = { workspace = true, features = ["rt-multi-thread", "sync", "time", "macros", "signal", "io-std", "net"] }
 anyhow.workspace = true
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+serde_json.workspace = true
+serde.workspace = true
+sha2.workspace = true
+axum = { version = "0.7", features = ["tokio"] }
+mlua = { version = "0.10", features = ["lua54", "vendored"], optional = true }
+
+[features]
+default = []
+lua = ["dep:ald-script-lua", "dep:mlua"]
 
 [[bin]]
 name = "ald-server"
 path = "src/main.rs"
+
+[dev-dependencies]
+astryn-core = { path = "../../client/astryn" }

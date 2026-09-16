@@ -98,3 +98,29 @@
   one-at-a-time result is 0xb779a091, verified independently. Test fixed, not
   the implementation.
 - 20/20 tests green; workspace regression 531 tests / 0 failed.
+
+## PHASE 11 — Client JavaScript runtime (ald-script-js)
+
+- Citizen-compatible client surface on QuickJS via rquickjs 0.13: timers,
+  Citizen namespace, on/onNet/emit, TriggerClientEvent/TriggerServerEvent
+  onto a host-drained wire queue, console routing, GetCurrentResourceName.
+- Virtual-clock timer pump (tick_timers advances a saturating u64 clock;
+  one-shots fire once, intervals reschedule at clock+period).
+- Root causes fixed this phase:
+  1. rquickjs 0.13 IntoJsFunc takes positional args only; single-tuple
+     closures match no impl. All callbacks converted.
+  2. Object::get turbofish order is get::<key, value>; Array/Object keys
+     need IntoAtom (u32, not usize); Value is a struct, no enum variants.
+  3. Ctx is invariant over its lifetime: a callback parameter cannot be
+     stored into objects tied to a captured outer Ctx (E0521). Callbacks now
+     kept in Rust-side registries as GC-rooted Persistent handles, taken as
+     Persistent<Function<'static>> params via its FromJs impl.
+  4. Ctx::clone runs JS_DupContext: capturing a Ctx in a JS-bound closure
+     holds a context ref that deadlocks teardown and trips the debug
+     GC-empty assert (list_empty(&rt->gc_obj_list)). Calling context is now
+     a per-call Ctx parameter (FromParam, consumes no JS args); closures
+     capture only plain Rust state.
+  5. Explicit Drop clears rooted registries while the heap is live; field
+     order is state/ctx/runtime so roots and heap die before the runtime.
+- require/process/Buffer deliberately absent (ReferenceError on touch).
+- 16/16 tests green; no teardown abort.

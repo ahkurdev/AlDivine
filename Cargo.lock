@@ -318,6 +318,7 @@ dependencies = [
  "ald-core",
  "anyhow",
  "rquickjs",
+ "serde_json",
 ]
 
 [[package]]

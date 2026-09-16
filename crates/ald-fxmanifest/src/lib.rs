@@ -212,14 +212,39 @@ pub struct DirectiveRecord {
 pub fn classify(name: &str) -> DirectiveStatus {
     match name {
         // Supported and parsed into NormalizedManifest fields.
-        "fx_version" | "resource_manifest_version" | "game" | "games" | "client_script"
-        | "client_scripts" | "server_script" | "server_scripts" | "shared_script"
-        | "shared_scripts" | "file" | "files" | "ui_page" | "export" | "exports"
-        | "server_export" | "server_exports" | "dependency" | "dependencies" | "provide"
-        | "this_is_a_map" | "data_file" | "before_level_meta" | "after_level_meta"
-        | "replace_level_meta" | "loadscreen" | "loadscreen_manual_shutdown" | "server_only"
-        | "lua54" | "node_version" | "clr_disable_task_scheduler"
-        | "use_experimental_fxv2_oal" | "convar_category" => DirectiveStatus::Supported,
+        "fx_version"
+        | "resource_manifest_version"
+        | "game"
+        | "games"
+        | "client_script"
+        | "client_scripts"
+        | "server_script"
+        | "server_scripts"
+        | "shared_script"
+        | "shared_scripts"
+        | "file"
+        | "files"
+        | "ui_page"
+        | "export"
+        | "exports"
+        | "server_export"
+        | "server_exports"
+        | "dependency"
+        | "dependencies"
+        | "provide"
+        | "this_is_a_map"
+        | "data_file"
+        | "before_level_meta"
+        | "after_level_meta"
+        | "replace_level_meta"
+        | "loadscreen"
+        | "loadscreen_manual_shutdown"
+        | "server_only"
+        | "lua54"
+        | "node_version"
+        | "clr_disable_task_scheduler"
+        | "use_experimental_fxv2_oal"
+        | "convar_category" => DirectiveStatus::Supported,
 
         // Legacy file-distribution concept: translated to the Aldivine
         // Streaming Engine / CDN origin config, not executed literally.
@@ -327,17 +352,12 @@ impl<'a> Lexer<'a> {
     fn read_string(&mut self, quote: u8, line: usize) -> Result<String, ManifestError> {
         let mut out = String::new();
         loop {
-            let b = self.bump().ok_or_else(|| ManifestError::Syntax {
-                line,
-                msg: "unterminated string".into(),
-            })?;
+            let b = self.bump().ok_or_else(|| ManifestError::Syntax { line, msg: "unterminated string".into() })?;
             match b {
                 b if b == quote => return Ok(out),
                 b'\\' => {
-                    let esc = self.bump().ok_or_else(|| ManifestError::Syntax {
-                        line,
-                        msg: "unterminated escape".into(),
-                    })?;
+                    let esc =
+                        self.bump().ok_or_else(|| ManifestError::Syntax { line, msg: "unterminated escape".into() })?;
                     let c = match esc {
                         b'n' => '\n',
                         b't' => '\t',
@@ -360,12 +380,7 @@ impl<'a> Lexer<'a> {
                     };
                     out.push(c);
                 }
-                b'\n' => {
-                    return Err(ManifestError::Syntax {
-                        line,
-                        msg: "newline in string".into(),
-                    })
-                }
+                b'\n' => return Err(ManifestError::Syntax { line, msg: "newline in string".into() }),
                 b => out.push(char::from(b)),
             }
         }
@@ -427,10 +442,9 @@ impl<'a> Lexer<'a> {
                 self.bump();
                 let mut out = String::new();
                 loop {
-                    let b = self.bump().ok_or_else(|| ManifestError::Syntax {
-                        line,
-                        msg: "unterminated long string".into(),
-                    })?;
+                    let b = self
+                        .bump()
+                        .ok_or_else(|| ManifestError::Syntax { line, msg: "unterminated long string".into() })?;
                     if b == b']' && self.peek() == Some(b']') {
                         self.bump();
                         return Ok(Some(Tok::Str(out)));
@@ -523,9 +537,7 @@ impl<'a> Parser<'a> {
             let value = self.parse_value()?;
             // `convar_category 'Name' { ... }` puts the label and the table
             // in two separate values; fold them into one sequence.
-            let value = if matches!(value, ManifestValue::Str(_))
-                && matches!(self.peek()?, Some(Tok::LBrace))
-            {
+            let value = if matches!(value, ManifestValue::Str(_)) && matches!(self.peek()?, Some(Tok::LBrace)) {
                 let table = self.parse_value()?;
                 ManifestValue::Table(vec![("1".to_string(), value), ("2".to_string(), table)])
             } else {
@@ -558,10 +570,9 @@ impl<'a> Parser<'a> {
                 line: self.lex.line,
                 msg: format!("bare identifier `{i}` is not a valid value"),
             }),
-            Some(other) => Err(ManifestError::Syntax {
-                line: self.lex.line,
-                msg: format!("unexpected token {other:?}"),
-            }),
+            Some(other) => {
+                Err(ManifestError::Syntax { line: self.lex.line, msg: format!("unexpected token {other:?}") })
+            }
         }
     }
 
@@ -586,11 +597,7 @@ impl<'a> Parser<'a> {
             let key_is_ident = matches!(self.peek()?, Some(Tok::Ident(_)));
             if key_is_ident {
                 // need lookahead for `=`
-                let id = if let Some(Tok::Ident(id)) = self.peek()?.cloned() {
-                    id
-                } else {
-                    unreachable!()
-                };
+                let id = if let Some(Tok::Ident(id)) = self.peek()?.cloned() { id } else { unreachable!() };
                 // tentatively consume ident; if next is `=`, it was a key
                 let save = self.lex.i;
                 let save_line = self.lex.line;
@@ -623,10 +630,7 @@ impl<'a> Parser<'a> {
                 self.take()?;
                 break;
             } else {
-                return Err(ManifestError::Syntax {
-                    line: self.lex.line,
-                    msg: "expected `,` or `}` in table".into(),
-                });
+                return Err(ManifestError::Syntax { line: self.lex.line, msg: "expected `,` or `}` in table".into() });
             }
         }
         let _ = &mut seq;
@@ -645,26 +649,21 @@ impl<'a> Parser<'a> {
         line: usize,
     ) -> Result<(), ManifestError> {
         let status = classify(name);
-        out.directives.push(DirectiveRecord {
-            name: name.to_string(),
-            status,
-            line,
-            note: note_for(name),
-        });
+        out.directives.push(DirectiveRecord { name: name.to_string(), status, line, note: note_for(name) });
 
         macro_rules! str_list {
             ($field:ident) => {{
-                out.$field.extend(value.coerce_string_list().map_err(|m| {
-                    ManifestError::InvalidValue { directive: name.into(), line, msg: m }
+                out.$field.extend(value.coerce_string_list().map_err(|m| ManifestError::InvalidValue {
+                    directive: name.into(),
+                    line,
+                    msg: m,
                 })?);
             }};
         }
 
         match name {
             "fx_version" => out.fx_version = value.as_str().map(str::to_string),
-            "resource_manifest_version" => {
-                out.resource_manifest_version = value.as_str().map(str::to_string)
-            }
+            "resource_manifest_version" => out.resource_manifest_version = value.as_str().map(str::to_string),
             "game" | "games" => str_list!(game),
             "client_script" | "client_scripts" => str_list!(client_scripts),
             "server_script" | "server_scripts" => str_list!(server_scripts),
@@ -703,18 +702,12 @@ impl<'a> Parser<'a> {
             "after_level_meta" => str_list!(after_level_meta),
             "replace_level_meta" => str_list!(replace_level_meta),
             "loadscreen" => out.loadscreen = value.as_str().map(str::to_string),
-            "loadscreen_manual_shutdown" => {
-                out.loadscreen_manual_shutdown = value.as_bool().unwrap_or(true)
-            }
+            "loadscreen_manual_shutdown" => out.loadscreen_manual_shutdown = value.as_bool().unwrap_or(true),
             "server_only" => out.server_only = value.as_bool().unwrap_or(true),
             "lua54" => out.lua54 = value.as_bool().unwrap_or(true),
             "node_version" => out.node_version = value.as_str().map(str::to_string),
-            "clr_disable_task_scheduler" => {
-                out.clr_disable_task_scheduler = value.as_bool().unwrap_or(true)
-            }
-            "use_experimental_fxv2_oal" => {
-                out.use_experimental_fxv2_oal = value.as_bool().unwrap_or(true)
-            }
+            "clr_disable_task_scheduler" => out.clr_disable_task_scheduler = value.as_bool().unwrap_or(true),
+            "use_experimental_fxv2_oal" => out.use_experimental_fxv2_oal = value.as_bool().unwrap_or(true),
             "convar_category" => {
                 out.convar_categories.push(parse_convar_category(&value, line, name)?);
             }
@@ -736,25 +729,15 @@ fn note_for(name: &str) -> String {
 }
 
 /// A convar_category entry is `{ 'Category Name', { convar = 'name', name = 'Label', ... } }`.
-fn parse_convar_category(
-    value: &ManifestValue,
-    line: usize,
-    directive: &str,
-) -> Result<ConvarCategory, ManifestError> {
-    let fail = |msg: String| ManifestError::InvalidValue {
-        directive: directive.into(),
-        line,
-        msg,
-    };
+fn parse_convar_category(value: &ManifestValue, line: usize, directive: &str) -> Result<ConvarCategory, ManifestError> {
+    let fail = |msg: String| ManifestError::InvalidValue { directive: directive.into(), line, msg };
     let seq = value.as_sequence().ok_or_else(|| fail("convar_category must be a table".into()))?;
     if seq.len() < 2 {
         return Err(fail("convar_category needs a name and a var table".into()));
     }
     let name = seq[0].as_str().ok_or_else(|| fail("category name must be a string".into()))?;
     let vars_tbl = &seq[1];
-    let var_seq = vars_tbl
-        .as_sequence()
-        .ok_or_else(|| fail("convar vars must be a list of tables".into()))?;
+    let var_seq = vars_tbl.as_sequence().ok_or_else(|| fail("convar vars must be a list of tables".into()))?;
     let mut vars = Vec::with_capacity(var_seq.len());
     for v in var_seq {
         let entries = match v {
@@ -837,8 +820,7 @@ pub fn parse_ald_manifest(src: &str) -> Result<NormalizedManifest, ManifestError
         #[serde(default)]
         lua54: bool,
     }
-    let raw: Raw = toml::from_str(src)
-        .map_err(|e| ManifestError::Syntax { line: 1, msg: e.to_string() })?;
+    let raw: Raw = toml::from_str(src).map_err(|e| ManifestError::Syntax { line: 1, msg: e.to_string() })?;
     let mut out = NormalizedManifest::default();
     out.fx_version = raw.fx_version;
     out.game = raw.game;
@@ -871,7 +853,9 @@ impl NormalizedManifest {
     /// Every file the resource declares, deduplicated, order-preserved.
     pub fn all_files(&self) -> Vec<String> {
         let mut out: Vec<String> = Vec::new();
-        for f in self.files.iter()
+        for f in self
+            .files
+            .iter()
             .chain(self.data_files.iter().map(|d| &d.file))
             .chain(self.ui_page.iter())
             .chain(self.client_scripts.iter())
@@ -1115,10 +1099,7 @@ description]]
     fn legacy_double_resource_manifest() {
         let src = "resource_manifest_version '44febabe-d386-4d18-afbe-5e627f4af937'\ngame 'gta5'";
         let m = parse_fxmanifest(src).unwrap();
-        assert_eq!(
-            m.resource_manifest_version.as_deref(),
-            Some("44febabe-d386-4d18-afbe-5e627f4af937")
-        );
+        assert_eq!(m.resource_manifest_version.as_deref(), Some("44febabe-d386-4d18-afbe-5e627f4af937"));
     }
 
     #[test]

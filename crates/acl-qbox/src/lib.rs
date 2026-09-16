@@ -8,9 +8,6 @@
 
 use acl_qbcore::QbcoreAdapter;
 use ald_compat::{Coverage, LegacyAdapter, LegacyFlavor, LegacyPlayer};
-use std::collections::HashMap;
-
-use aldivine_framework::{EconomyService, InventoryService, JobService, PlayerService};
 
 const QBOX_CAPS: &[&str] =
     &["GetPlayerByCitizenId", "PlayerData.money", "AddItem", "RemoveItem", "GetJob", "UpdatePlayerData"];
@@ -43,6 +40,8 @@ impl LegacyAdapter for QboxAdapter<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use aldivine_framework::{EconomyService, InventoryService, JobService, PlayerService};
+    use std::collections::HashMap;
 
     #[test]
     fn flavor_is_qbox_not_qbcore() {

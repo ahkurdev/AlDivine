@@ -1,0 +1,5 @@
+name = "loading"
+version = "0.1.0"
+server_scripts = ["server/init.lua"]
+client_scripts = ["client/init.lua"]
+capabilities = ["events.emit", "events.on"]

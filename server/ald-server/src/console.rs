@@ -25,7 +25,13 @@ impl Console {
 
     /// Run the console until shutdown. stdin reads happen in a
     /// spawn_blocking task so the async runtime is never blocked.
+    /// Remote commands injected via `ServerState::console_tx()` (Aegis,
+    /// operator tooling) are served by a companion task.
     pub async fn run(&self) {
+        if let Some(rx) = self.state.take_console_rx() {
+            let remote = Arc::clone(&self.state);
+            tokio::spawn(async move { serve_remote(remote, rx).await });
+        }
         loop {
             if *self.state.shutdown_rx().borrow() {
                 break;
@@ -58,6 +64,7 @@ impl Console {
             }
             ConsoleCommand::Stop => {
                 tracing::info!("console: stop requested (operator)");
+                self.state.request_shutdown();
             }
             ConsoleCommand::ResourceList => {
                 let lifecycle = self.state.lifecycle().lock().await;
@@ -69,6 +76,34 @@ impl Console {
                 // Audited but otherwise unhandled unknown commands.
                 tracing::info!(command = %raw, "console: unknown command (audited)");
             }
+        }
+    }
+}
+
+/// Serve commands injected remotely (Aegis / operator tooling) until the
+/// channel closes or shutdown fires. Stdin serving continues independently.
+async fn serve_remote(state: Arc<ServerState>, mut rx: tokio::sync::mpsc::UnboundedReceiver<ConsoleCommand>) {
+    let console = Console { state: Arc::clone(&state) };
+    loop {
+        tokio::select! {
+            cmd = rx.recv() => match cmd {
+                Some(c) => console.execute(&c).await,
+                None => break,
+            },
+            _ = wait_shutdown(&state) => break,
+        }
+    }
+}
+
+/// Resolve once the shutdown flag is set (or the sender is dropped).
+async fn wait_shutdown(state: &ServerState) {
+    let mut rx = state.shutdown_rx();
+    loop {
+        if *rx.borrow() {
+            break;
+        }
+        if rx.changed().await.is_err() {
+            break;
         }
     }
 }
@@ -101,8 +136,8 @@ mod tests {
 
     fn dummy_state() -> Arc<ServerState> {
         let cfg = Config::default();
-        let (_tx, rx) = tokio::sync::watch::channel(false);
-        Arc::new(ServerState::new(cfg, rx))
+        let (shutdown_tx, _rx) = tokio::sync::watch::channel(false);
+        Arc::new(ServerState::new(cfg, shutdown_tx))
     }
 
     #[test]
@@ -128,5 +163,51 @@ mod tests {
         let state = dummy_state();
         assert_eq!(state.running_count().await, 0);
         assert_eq!(state.lifecycle().lock().await.resource_names(), Vec::<String>::new());
+    }
+
+    #[tokio::test]
+    async fn stop_command_requests_shutdown() {
+        let state = dummy_state();
+        assert!(!*state.shutdown_rx().borrow());
+        Console::new(Arc::clone(&state)).execute(&ConsoleCommand::Stop).await;
+        assert!(*state.shutdown_rx().borrow());
+    }
+
+    #[tokio::test]
+    async fn remote_channel_serves_then_exits_on_shutdown() {
+        let state = dummy_state();
+        let tx = state.console_tx();
+        let rx = state.take_console_rx().expect("receiver present");
+        // Second take must fail: exactly one server of the channel.
+        assert!(state.take_console_rx().is_none());
+        let remote = Arc::clone(&state);
+        let handle = tokio::spawn(async move { serve_remote(remote, rx).await });
+        tx.send(ConsoleCommand::Status).unwrap();
+        tx.send(ConsoleCommand::Raw("say hi".into())).unwrap();
+        // Give the task a chance to drain; then shutdown must end it.
+        for _ in 0..50 {
+            tokio::task::yield_now().await;
+        }
+        assert!(!handle.is_finished());
+        state.request_shutdown();
+        tokio::time::timeout(std::time::Duration::from_secs(5), handle)
+            .await
+            .expect("serve_remote must exit on shutdown")
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn remote_stop_command_shuts_down_and_ends_serve() {
+        let state = dummy_state();
+        let tx = state.console_tx();
+        let rx = state.take_console_rx().expect("receiver present");
+        let remote = Arc::clone(&state);
+        let handle = tokio::spawn(async move { serve_remote(remote, rx).await });
+        tx.send(ConsoleCommand::Stop).unwrap();
+        tokio::time::timeout(std::time::Duration::from_secs(5), handle)
+            .await
+            .expect("serve_remote must exit after remote Stop")
+            .unwrap();
+        assert!(*state.shutdown_rx().borrow());
     }
 }

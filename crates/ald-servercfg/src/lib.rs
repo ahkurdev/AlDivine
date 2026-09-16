@@ -9,13 +9,13 @@
 pub mod ast;
 pub mod error;
 pub mod include_resolver;
+pub mod normalize;
 pub mod parse;
 pub mod secrets;
-pub mod normalize;
 
 pub use ast::{Directive, Document, Value};
 pub use error::{CfgError, CfgResult};
-pub use include_resolver::{IncludeResolver, InMemoryFs, Vfs};
+pub use include_resolver::{InMemoryFs, IncludeResolver, Vfs};
 pub use normalize::{NormalizedServerConfig, ReloadImpact};
 pub use parse::parse_document;
-pub use secrets::{SecretHandle, SecretProvider, EnvProvider, RedactedValue};
+pub use secrets::{EnvProvider, RedactedValue, SecretHandle, SecretProvider};

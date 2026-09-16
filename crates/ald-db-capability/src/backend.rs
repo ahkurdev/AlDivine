@@ -84,10 +84,7 @@ pub struct Row {
 
 impl Row {
     pub fn get(&self, name: &str) -> Option<&str> {
-        self.cols
-            .iter()
-            .find(|(n, _)| n.eq_ignore_ascii_case(name))
-            .and_then(|(_, v)| v.as_deref())
+        self.cols.iter().find(|(n, _)| n.eq_ignore_ascii_case(name)).and_then(|(_, v)| v.as_deref())
     }
 
     pub fn len(&self) -> usize {
@@ -117,8 +114,10 @@ pub trait Connection {
 
     /// Run a statement inside a transaction. The closure must see a consistent view
     /// and its writes must be invisible to other connections until commit.
-    fn transaction(&mut self, work: &mut dyn FnMut(&mut dyn Connection) -> Result<(), AldError>)
-        -> Result<(), AldError>;
+    fn transaction(
+        &mut self,
+        work: &mut dyn FnMut(&mut dyn Connection) -> Result<(), AldError>,
+    ) -> Result<(), AldError>;
 
     /// True if a round-trip currently succeeds.
     fn ping(&mut self) -> Result<(), AldError>;

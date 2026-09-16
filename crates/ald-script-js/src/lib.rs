@@ -68,11 +68,7 @@ impl JsRuntime {
     pub fn new() -> anyhow::Result<Self> {
         let runtime = Runtime::new()?;
         let ctx = Context::full(&runtime)?;
-        let js = JsRuntime {
-            state: Rc::new(RefCell::new(JsState::default())),
-            _runtime: runtime,
-            ctx,
-        };
+        let js = JsRuntime { state: Rc::new(RefCell::new(JsState::default())), _runtime: runtime, ctx };
         js.install_citizen_compat()?;
         Ok(js)
     }
@@ -97,9 +93,7 @@ impl JsRuntime {
     /// Evaluate and return a JS string value as a raw Rust string.
     fn eval_raw(&self, expr: &str) -> anyhow::Result<String> {
         self.ctx.with(|ctx| -> anyhow::Result<String> {
-            ctx.eval::<String, _>(expr)
-                .catch(&ctx)
-                .map_err(|e| anyhow::anyhow!("js error: {e:?}"))
+            ctx.eval::<String, _>(expr).catch(&ctx).map_err(|e| anyhow::anyhow!("js error: {e:?}"))
         })
     }
 
@@ -133,46 +127,34 @@ impl JsRuntime {
             let state = self.state.clone();
             globals.set(
                 "setTimeout",
-                Function::new(
-                    ctx.clone(),
-                    move |cb: RootedFn, ms: u64| -> Result<f64, rquickjs::Error> {
-                        Ok(add_timer(&state, "timeout", cb, ms, None))
-                    },
-                )?,
+                Function::new(ctx.clone(), move |cb: RootedFn, ms: u64| -> Result<f64, rquickjs::Error> {
+                    Ok(add_timer(&state, "timeout", cb, ms, None))
+                })?,
             )?;
 
             let state = self.state.clone();
             globals.set(
                 "setInterval",
-                Function::new(
-                    ctx.clone(),
-                    move |cb: RootedFn, ms: u64| -> Result<f64, rquickjs::Error> {
-                        Ok(add_timer(&state, "interval", cb, ms, Some(ms)))
-                    },
-                )?,
+                Function::new(ctx.clone(), move |cb: RootedFn, ms: u64| -> Result<f64, rquickjs::Error> {
+                    Ok(add_timer(&state, "interval", cb, ms, Some(ms)))
+                })?,
             )?;
 
             let state = self.state.clone();
             globals.set(
                 "clearTimeout",
-                Function::new(
-                    ctx.clone(),
-                    move |id: f64| -> Result<(), rquickjs::Error> {
-                        clear_timer(&state, id);
-                        Ok(())
-                    },
-                )?,
+                Function::new(ctx.clone(), move |id: f64| -> Result<(), rquickjs::Error> {
+                    clear_timer(&state, id);
+                    Ok(())
+                })?,
             )?;
             let state = self.state.clone();
             globals.set(
                 "clearInterval",
-                Function::new(
-                    ctx.clone(),
-                    move |id: f64| -> Result<(), rquickjs::Error> {
-                        clear_timer(&state, id);
-                        Ok(())
-                    },
-                )?,
+                Function::new(ctx.clone(), move |id: f64| -> Result<(), rquickjs::Error> {
+                    clear_timer(&state, id);
+                    Ok(())
+                })?,
             )?;
 
             // --- Citizen namespace ------------------------------------------
@@ -188,24 +170,18 @@ impl JsRuntime {
             // runtime's GC-empty assertion.
             citizen.set(
                 "CreateThread",
-                Function::new(
-                    ctx.clone(),
-                    move |call: Ctx<'_>, cb: RootedFn| -> Result<(), rquickjs::Error> {
-                        let f: Function = cb.restore(&call)?;
-                        f.call::<(), ()>(())?;
-                        Ok(())
-                    },
-                )?,
+                Function::new(ctx.clone(), move |call: Ctx<'_>, cb: RootedFn| -> Result<(), rquickjs::Error> {
+                    let f: Function = cb.restore(&call)?;
+                    f.call::<(), ()>(())?;
+                    Ok(())
+                })?,
             )?;
             let state = self.state.clone();
             citizen.set(
                 "SetTimeout",
-                Function::new(
-                    ctx.clone(),
-                    move |cb: RootedFn, ms: u64| -> Result<f64, rquickjs::Error> {
-                        Ok(add_timer(&state, "timeout", cb, ms, None))
-                    },
-                )?,
+                Function::new(ctx.clone(), move |cb: RootedFn, ms: u64| -> Result<f64, rquickjs::Error> {
+                    Ok(add_timer(&state, "timeout", cb, ms, None))
+                })?,
             )?;
             globals.set("Citizen", citizen)?;
 
@@ -220,12 +196,7 @@ impl JsRuntime {
                 Function::new(
                     ctx.clone(),
                     move |name: String, cb: RootedFn, net: bool| -> Result<(), rquickjs::Error> {
-                        state
-                            .borrow_mut()
-                            .handlers
-                            .entry(name)
-                            .or_default()
-                            .push(HandlerEntry { cb, net });
+                        state.borrow_mut().handlers.entry(name).or_default().push(HandlerEntry { cb, net });
                         Ok(())
                     },
                 )?,
@@ -247,36 +218,20 @@ impl JsRuntime {
             let state = self.state.clone();
             globals.set(
                 "on",
-                Function::new(
-                    ctx.clone(),
-                    move |name: String, cb: RootedFn| -> Result<(), rquickjs::Error> {
-                        state
-                            .borrow_mut()
-                            .handlers
-                            .entry(name)
-                            .or_default()
-                            .push(HandlerEntry { cb, net: false });
-                        Ok(())
-                    },
-                )?,
+                Function::new(ctx.clone(), move |name: String, cb: RootedFn| -> Result<(), rquickjs::Error> {
+                    state.borrow_mut().handlers.entry(name).or_default().push(HandlerEntry { cb, net: false });
+                    Ok(())
+                })?,
             )?;
 
             // onNet(name, cb) — registers a network handler
             let state = self.state.clone();
             globals.set(
                 "onNet",
-                Function::new(
-                    ctx.clone(),
-                    move |name: String, cb: RootedFn| -> Result<(), rquickjs::Error> {
-                        state
-                            .borrow_mut()
-                            .handlers
-                            .entry(name)
-                            .or_default()
-                            .push(HandlerEntry { cb, net: true });
-                        Ok(())
-                    },
-                )?,
+                Function::new(ctx.clone(), move |name: String, cb: RootedFn| -> Result<(), rquickjs::Error> {
+                    state.borrow_mut().handlers.entry(name).or_default().push(HandlerEntry { cb, net: true });
+                    Ok(())
+                })?,
             )?;
 
             // emit(name, args_json) — fires local handlers via fire_local
@@ -297,30 +252,24 @@ impl JsRuntime {
             let state = self.state.clone();
             globals.set(
                 "TriggerClientEvent",
-                Function::new(
-                    ctx.clone(),
-                    move |name: String, payload: String| -> Result<(), rquickjs::Error> {
-                        state.borrow_mut().wire.push(
-                            serde_json::json!({"dir": "client", "name": name, "payload": payload})
-                                .to_string(),
-                        );
-                        Ok(())
-                    },
-                )?,
+                Function::new(ctx.clone(), move |name: String, payload: String| -> Result<(), rquickjs::Error> {
+                    state
+                        .borrow_mut()
+                        .wire
+                        .push(serde_json::json!({"dir": "client", "name": name, "payload": payload}).to_string());
+                    Ok(())
+                })?,
             )?;
             let state = self.state.clone();
             globals.set(
                 "TriggerServerEvent",
-                Function::new(
-                    ctx.clone(),
-                    move |name: String, payload: String| -> Result<(), rquickjs::Error> {
-                        state.borrow_mut().wire.push(
-                            serde_json::json!({"dir": "server", "name": name, "payload": payload})
-                                .to_string(),
-                        );
-                        Ok(())
-                    },
-                )?,
+                Function::new(ctx.clone(), move |name: String, payload: String| -> Result<(), rquickjs::Error> {
+                    state
+                        .borrow_mut()
+                        .wire
+                        .push(serde_json::json!({"dir": "server", "name": name, "payload": payload}).to_string());
+                    Ok(())
+                })?,
             )?;
 
             // --- resource identity ------------------------------------------
@@ -335,19 +284,14 @@ impl JsRuntime {
             // --- console ------------------------------------------------------
             // QuickJS has no console; provide one routing to a host channel.
             let console = Object::new(ctx.clone())?;
-            for (slot, level) in
-                [("log", "info"), ("info", "info"), ("warn", "warn"), ("error", "error")]
-            {
+            for (slot, level) in [("log", "info"), ("info", "info"), ("warn", "warn"), ("error", "error")] {
                 let state = self.state.clone();
                 console.set(
                     slot,
-                    Function::new(
-                        ctx.clone(),
-                        move |msg: String| -> Result<(), rquickjs::Error> {
-                            state.borrow_mut().logs.push((level.to_string(), msg));
-                            Ok(())
-                        },
-                    )?,
+                    Function::new(ctx.clone(), move |msg: String| -> Result<(), rquickjs::Error> {
+                        state.borrow_mut().logs.push((level.to_string(), msg));
+                        Ok(())
+                    })?,
                 )?;
             }
             globals.set("console", console)?;
@@ -410,11 +354,8 @@ impl JsRuntime {
         }
         self.ctx.with(|ctx| -> anyhow::Result<()> {
             for cb in due {
-                let f: Function = cb
-                    .restore(&ctx)
-                    .map_err(|e| anyhow::anyhow!("timer restore: {e:?}"))?;
-                f.call::<(), ()>(())
-                    .map_err(|e| anyhow::anyhow!("timer callback: {e:?}"))?;
+                let f: Function = cb.restore(&ctx).map_err(|e| anyhow::anyhow!("timer restore: {e:?}"))?;
+                f.call::<(), ()>(()).map_err(|e| anyhow::anyhow!("timer callback: {e:?}"))?;
             }
             Ok(())
         })?;
@@ -436,7 +377,7 @@ impl Drop for JsRuntime {
         // deterministic instead of tripping the runtime's GC-empty assert.
         // Best-effort: if the context is somehow unusable, field drops below
         // still run and the process exit path stays intact.
-        let _ = self.ctx.with(|_| {
+        self.ctx.with(|_| {
             let mut s = self.state.borrow_mut();
             s.timers.clear();
             s.handlers.clear();
@@ -446,22 +387,11 @@ impl Drop for JsRuntime {
 
 // --- helpers ---------------------------------------------------------------
 
-fn add_timer(
-    state: &Rc<RefCell<JsState>>,
-    kind: &str,
-    cb: RootedFn,
-    ms: u64,
-    period: Option<u64>,
-) -> f64 {
+fn add_timer(state: &Rc<RefCell<JsState>>, kind: &str, cb: RootedFn, ms: u64, period: Option<u64>) -> f64 {
     let mut s = state.borrow_mut();
     let id = s.timers.len();
     let due = s.clock.saturating_add(ms);
-    s.timers.push(TimerEntry {
-        kind: kind.to_string(),
-        due,
-        period,
-        cb,
-    });
+    s.timers.push(TimerEntry { kind: kind.to_string(), due, period, cb });
     id as f64
 }
 
@@ -476,20 +406,11 @@ fn clear_timer(state: &Rc<RefCell<JsState>>, id: f64) {
 /// Fire the local (non-net) handlers for `name` with `args_json` parsed as
 /// the single payload argument. Handler list is cloned before invoking so a
 /// handler may register or emit reentrantly without aliasing the registry.
-fn fire_local(
-    host: &Ctx,
-    state: &Rc<RefCell<JsState>>,
-    name: &str,
-    args_json: &str,
-) -> Result<(), rquickjs::Error> {
+fn fire_local(host: &Ctx, state: &Rc<RefCell<JsState>>, name: &str, args_json: &str) -> Result<(), rquickjs::Error> {
     let cbs: Vec<RootedFn> = {
         let s = state.borrow();
         match s.handlers.get(name) {
-            Some(list) => list
-                .iter()
-                .filter(|h| !h.net)
-                .map(|h| h.cb.clone())
-                .collect(),
+            Some(list) => list.iter().filter(|h| !h.net).map(|h| h.cb.clone()).collect(),
             None => Vec::new(),
         }
     };
@@ -531,23 +452,17 @@ mod tests {
     #[test]
     fn set_timeout_fires_on_tick() {
         let rt = JsRuntime::new().unwrap();
-        rt.exec("globalThis.__hit = 0; setTimeout(function() { globalThis.__hit++; }, 100);")
-            .unwrap();
+        rt.exec("globalThis.__hit = 0; setTimeout(function() { globalThis.__hit++; }, 100);").unwrap();
         assert_eq!(rt.tick_timers(50).unwrap(), 0);
         assert_eq!(rt.tick_timers(50).unwrap(), 1);
-        assert_eq!(
-            rt.tick_timers(1000).unwrap(),
-            0,
-            "one-shot must not re-fire"
-        );
+        assert_eq!(rt.tick_timers(1000).unwrap(), 0, "one-shot must not re-fire");
         assert!(rt.eval_string("__hit").unwrap().contains('1'));
     }
 
     #[test]
     fn set_interval_repeats() {
         let rt = JsRuntime::new().unwrap();
-        rt.exec("globalThis.__n = 0; setInterval(function() { globalThis.__n++; }, 10);")
-            .unwrap();
+        rt.exec("globalThis.__n = 0; setInterval(function() { globalThis.__n++; }, 10);").unwrap();
         rt.tick_timers(10).unwrap();
         rt.tick_timers(10).unwrap();
         rt.tick_timers(10).unwrap();
@@ -557,8 +472,10 @@ mod tests {
     #[test]
     fn clear_timer_cancels() {
         let rt = JsRuntime::new().unwrap();
-        rt.exec("globalThis.__x = 0; var __cid = setInterval(function() { globalThis.__x++; }, 10); clearInterval(__cid);")
-            .unwrap();
+        rt.exec(
+            "globalThis.__x = 0; var __cid = setInterval(function() { globalThis.__x++; }, 10); clearInterval(__cid);",
+        )
+        .unwrap();
         rt.tick_timers(100).unwrap();
         assert!(rt.eval_string("__x").unwrap().contains('0'));
     }
@@ -566,8 +483,7 @@ mod tests {
     #[test]
     fn on_emit_roundtrip() {
         let rt = JsRuntime::new().unwrap();
-        rt.exec("globalThis.__got = 0; on('myevent', function() { globalThis.__got = 42; });")
-            .unwrap();
+        rt.exec("globalThis.__got = 0; on('myevent', function() { globalThis.__got = 42; });").unwrap();
         rt.exec("emit('myevent', '[]')").unwrap();
         assert!(rt.eval_string("__got").unwrap().contains("42"));
     }
@@ -575,10 +491,7 @@ mod tests {
     #[test]
     fn on_net_does_not_fire_on_local_emit() {
         let rt = JsRuntime::new().unwrap();
-        rt.exec(
-            "globalThis.__leaked = 0; onNet('secret', function() { globalThis.__leaked = 1; });",
-        )
-        .unwrap();
+        rt.exec("globalThis.__leaked = 0; onNet('secret', function() { globalThis.__leaked = 1; });").unwrap();
         rt.exec("emit('secret', '[]')").unwrap();
         assert!(rt.eval_string("__leaked").unwrap().contains('0'));
     }
@@ -586,10 +499,7 @@ mod tests {
     #[test]
     fn emit_passes_json_payload() {
         let rt = JsRuntime::new().unwrap();
-        rt.exec(
-            "globalThis.__sum = 0; on('add', function(p) { globalThis.__sum = p.a + p.b; });",
-        )
-        .unwrap();
+        rt.exec("globalThis.__sum = 0; on('add', function(p) { globalThis.__sum = p.a + p.b; });").unwrap();
         rt.exec("emit('add', '{\"a\": 3, \"b\": 4}')").unwrap();
         assert!(rt.eval_string("__sum").unwrap().contains('7'));
     }
@@ -597,10 +507,8 @@ mod tests {
     #[test]
     fn trigger_events_enqueue_on_wire() {
         let rt = JsRuntime::new().unwrap();
-        rt.exec("TriggerClientEvent('hud:show', '{\"text\": \"hi\"}');")
-            .unwrap();
-        rt.exec("TriggerServerEvent('money:give', '{\"amount\": 5}');")
-            .unwrap();
+        rt.exec("TriggerClientEvent('hud:show', '{\"text\": \"hi\"}');").unwrap();
+        rt.exec("TriggerServerEvent('money:give', '{\"amount\": 5}');").unwrap();
         let wire = rt.drain_wire().unwrap();
         assert_eq!(wire.len(), 2);
         assert!(wire.iter().any(|w| w.contains("\"dir\":\"client\"")));
@@ -622,10 +530,7 @@ mod tests {
     #[test]
     fn citizen_thread_runs_synchronously() {
         let rt = JsRuntime::new().unwrap();
-        rt.exec(
-            "globalThis.__t = 0; Citizen.CreateThread(function() { globalThis.__t = 1; });",
-        )
-        .unwrap();
+        rt.exec("globalThis.__t = 0; Citizen.CreateThread(function() { globalThis.__t = 1; });").unwrap();
         assert!(rt.eval_string("__t").unwrap().contains('1'));
     }
 
@@ -659,10 +564,7 @@ mod tests {
         // runtime; the host must run untrusted scripts under a process
         // watchdog. Verified here only for a cooperative finite workload.
         let rt = JsRuntime::new().unwrap();
-        rt.exec(
-            "globalThis.__acc = 0; for (var i = 0; i < 100000; i++) { globalThis.__acc++; }",
-        )
-        .unwrap();
+        rt.exec("globalThis.__acc = 0; for (var i = 0; i < 100000; i++) { globalThis.__acc++; }").unwrap();
         assert!(rt.eval_string("__acc").unwrap().contains("100000"));
     }
 }

@@ -5,9 +5,9 @@
 //! backend with no reachable server returns a `Blocked` report naming the blocker —
 //! it is never silently marked IMPLEMENTED.
 
-use crate::backend::{Backend, Connection, QueryResult, Row};
-use crate::capability::{cap_err, Capability};
-use crate::{CapabilityReport, CheckResult, CheckStatus, Verdict};
+use crate::backend::{Backend, Connection};
+use crate::capability::Capability;
+use crate::{CapabilityReport, CheckResult};
 use ald_core::AldError;
 
 /// Runs the Aldivine DB conformance suite against one live connection.
@@ -27,9 +27,7 @@ impl<'a> ConformanceSuite<'a> {
 
         // A dead connection cannot support anything; report the blocker explicitly.
         if let Err(e) = self.conn.ping() {
-            return Err(AldError::Config(format!(
-                "conformance cannot run against {backend}: unreachable ({e})"
-            )));
+            return Err(AldError::Config(format!("conformance cannot run against {backend}: unreachable ({e})")));
         }
 
         let claimed = backend.capabilities();
@@ -77,20 +75,14 @@ impl<'a> ConformanceSuite<'a> {
         });
         // The transaction helper must surface our error, not swallow it.
         if res.is_ok() {
-            return Ok(Some(CheckResult::fail(
-                Capability::Transactions,
-                "rollback did not propagate the error",
-            )));
+            return Ok(Some(CheckResult::fail(Capability::Transactions, "rollback did not propagate the error")));
         }
         let rows = self.conn.query("SELECT COUNT(*) AS n FROM ald_conf_tx")?;
         let n = rows.first().and_then(|r| r.get("n")).unwrap_or("?");
         if n == "0" {
             Ok(Some(CheckResult::pass(Capability::Transactions)))
         } else {
-            Ok(Some(CheckResult::fail(
-                Capability::Transactions,
-                format!("rollback left {n} row(s) behind"),
-            )))
+            Ok(Some(CheckResult::fail(Capability::Transactions, format!("rollback left {n} row(s) behind"))))
         }
     }
 
@@ -101,9 +93,7 @@ impl<'a> ConformanceSuite<'a> {
         self.conn.transaction(&mut |outer| {
             outer.execute("INSERT INTO ald_conf_nested (id) VALUES (1)")?;
             // A nested unit that fails must be recoverable via savepoint.
-            let inner = outer.transaction(&mut |_| {
-                Err(AldError::Config("intentional inner failure".into()))
-            });
+            let inner = outer.transaction(&mut |_| Err(AldError::Config("intentional inner failure".into())));
             if inner.is_err() {
                 // Roll back to the savepoint equivalent and continue.
                 outer.execute("INSERT INTO ald_conf_nested (id) VALUES (2)")?;
@@ -115,18 +105,14 @@ impl<'a> ConformanceSuite<'a> {
         if n == "2" {
             Ok(Some(CheckResult::pass(Capability::NestedTransactions)))
         } else {
-            Ok(Some(CheckResult::fail(
-                Capability::NestedTransactions,
-                format!("nested recovery failed: {n} row(s)"),
-            )))
+            Ok(Some(CheckResult::fail(Capability::NestedTransactions, format!("nested recovery failed: {n} row(s)"))))
         }
     }
 
     fn check_json(&mut self) -> Result<Option<CheckResult>, AldError> {
         let dialect = crate::dialect::Dialect::for_backend(self.conn.backend());
         let t = dialect.json_type();
-        self.conn
-            .execute(&format!("CREATE TABLE IF NOT EXISTS ald_conf_json (id INTEGER PRIMARY KEY, doc {t})"))?;
+        self.conn.execute(&format!("CREATE TABLE IF NOT EXISTS ald_conf_json (id INTEGER PRIMARY KEY, doc {t})"))?;
         self.conn.execute("DELETE FROM ald_conf_json")?;
         self.conn.execute("INSERT INTO ald_conf_json (id, doc) VALUES (1, '{\"hp\":100}')")?;
         // MySQL JSON_EXTRACT / Postgres -> ; both must return the numeric path.
@@ -164,8 +150,7 @@ impl<'a> ConformanceSuite<'a> {
     fn check_timestamps(&mut self, cap: Capability) -> Result<Option<CheckResult>, AldError> {
         let dialect = crate::dialect::Dialect::for_backend(self.conn.backend());
         let t = dialect.timestamp_type();
-        self.conn
-            .execute(&format!("CREATE TABLE IF NOT EXISTS ald_conf_ts (id INTEGER PRIMARY KEY, ts {t})"))?;
+        self.conn.execute(&format!("CREATE TABLE IF NOT EXISTS ald_conf_ts (id INTEGER PRIMARY KEY, ts {t})"))?;
         self.conn.execute("DELETE FROM ald_conf_ts")?;
         // A microsecond-precision value must survive a round trip.
         self.conn.execute("INSERT INTO ald_conf_ts (id, ts) VALUES (1, '2026-09-15 12:34:56.123456')")?;
@@ -179,16 +164,14 @@ impl<'a> ConformanceSuite<'a> {
     }
 
     fn check_generated_ids(&mut self) -> Result<Option<CheckResult>, AldError> {
-        self.conn.execute("CREATE TABLE IF NOT EXISTS ald_conf_id (id INTEGER PRIMARY KEY AUTO_INCREMENT, n INTEGER)")?;
+        self.conn
+            .execute("CREATE TABLE IF NOT EXISTS ald_conf_id (id INTEGER PRIMARY KEY AUTO_INCREMENT, n INTEGER)")?;
         self.conn.execute("DELETE FROM ald_conf_id")?;
         let r = self.conn.execute("INSERT INTO ald_conf_id (n) VALUES (7)")?;
         if r.rows_affected == 1 {
             Ok(Some(CheckResult::pass(Capability::GeneratedIds)))
         } else {
-            Ok(Some(CheckResult::fail(
-                Capability::GeneratedIds,
-                format!("insert affected {} rows", r.rows_affected),
-            )))
+            Ok(Some(CheckResult::fail(Capability::GeneratedIds, format!("insert affected {} rows", r.rows_affected))))
         }
     }
 
@@ -204,9 +187,9 @@ impl<'a> ConformanceSuite<'a> {
     fn check_upsert_returning(&mut self) -> Result<Option<CheckResult>, AldError> {
         self.conn.execute("CREATE TABLE IF NOT EXISTS ald_conf_ret (k VARCHAR(64) PRIMARY KEY, v INTEGER)")?;
         self.conn.execute("DELETE FROM ald_conf_ret")?;
-        let rows = self.conn.query(
-            "INSERT INTO ald_conf_ret (k, v) VALUES ('a', 1) ON CONFLICT (k) DO UPDATE SET v = 2 RETURNING v",
-        )?;
+        let rows = self
+            .conn
+            .query("INSERT INTO ald_conf_ret (k, v) VALUES ('a', 1) ON CONFLICT (k) DO UPDATE SET v = 2 RETURNING v")?;
         let v = rows.first().and_then(|r| r.get("v")).unwrap_or("");
         if v == "1" {
             Ok(Some(CheckResult::pass(Capability::UpsertReturnChanged)))
@@ -316,6 +299,9 @@ pub fn is_retryable(backend: Backend, err: &AldError) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::backend::{Backend, Connection, QueryResult, Row};
+    use crate::capability::{cap_err, Capability};
+    use crate::{CapabilityReport, CheckResult, Verdict};
 
     #[test]
     fn retryable_classification() {

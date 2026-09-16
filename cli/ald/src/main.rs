@@ -5,6 +5,7 @@
 //!   ald resource validate <manifest>         Validate an ald_manifest.toml
 //!   ald config validate <server.toml>        Validate a server config
 //!   ald migrate <resource-path>              Migration report for a legacy resource
+//!   ald dependencies audit-native            Native-dependency audit gate (workspace root)
 //!   ald help
 
 use std::fs;
@@ -14,8 +15,10 @@ use std::process::exit;
 use ald_config::Config;
 use ald_resource::Manifest;
 
+mod audit;
 mod migrate;
 mod new;
+mod report;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -28,6 +31,8 @@ fn main() {
     match cmd {
         "new" => new::run(rest),
         "migrate" => migrate::run(rest),
+        "dependencies" => audit::run(rest),
+        "report" => report::run(rest),
         "resource" => cmd_resource(rest),
         "config" => cmd_config(rest),
         "help" | "--help" | "-h" => print_help(),
@@ -47,6 +52,8 @@ Usage:\n\
   ald resource validate <manifest.toml>   Validate an ald_manifest.toml\n\
   ald config validate <server.toml>       Validate a server config\n\
   ald migrate <resource-path>             Migration report (no rewrite)\n\
+  ald report create [root-dir] [--out <f>] Generate sanitized diagnostic bundle\n\
+  ald dependencies audit-native         Native-dep audit (workspace root)\n\
   ald help                                Show this help"
     );
 }

@@ -1,5 +1,4 @@
 use crate::channel::Channel;
-use crate::PROTOCOL_VERSION;
 use ald_core::AldError;
 
 /// Maximum allowed payload size (16 MiB). Packets exceeding this are rejected
@@ -103,6 +102,7 @@ pub fn decode_packet(bytes: &[u8], expected_version: u16) -> Result<Packet, AldE
 mod tests {
     use super::*;
     use crate::channel::Channel;
+    use crate::PROTOCOL_VERSION;
 
     fn sample() -> Packet {
         Packet {

@@ -1,0 +1,10 @@
+[package]
+name = "ald-native-extension-testext"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]

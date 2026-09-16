@@ -62,10 +62,7 @@ impl CfxValue {
 
     /// True for the four vector family variants (quaternion included).
     pub fn is_vector(&self) -> bool {
-        matches!(
-            self,
-            CfxValue::Vector2(..) | CfxValue::Vector3(..) | CfxValue::Vector4(..) | CfxValue::Quat(..)
-        )
+        matches!(self, CfxValue::Vector2(..) | CfxValue::Vector3(..) | CfxValue::Vector4(..) | CfxValue::Quat(..))
     }
 
     /// Component count for vector family values; 0 otherwise.
@@ -281,8 +278,7 @@ struct Cursor<'a> {
 impl<'a> Cursor<'a> {
     fn read_u8(&mut self) -> Result<u8, AldError> {
         let b = self.bytes.get(self.pos).copied();
-        b.ok_or_else(|| AldError::Protocol("unexpected end of msgpack buffer".into()))
-            .inspect(|_| self.pos += 1)
+        b.ok_or_else(|| AldError::Protocol("unexpected end of msgpack buffer".into())).inspect(|_| self.pos += 1)
     }
 
     fn take(&mut self, n: usize) -> Result<&'a [u8], AldError> {
@@ -397,8 +393,7 @@ fn read_bin(c: &mut Cursor<'_>, n: usize) -> Result<CfxValue, AldError> {
 
 fn read_str(c: &mut Cursor<'_>, n: usize) -> Result<CfxValue, AldError> {
     let raw = c.take(n)?;
-    let s = std::str::from_utf8(raw)
-        .map_err(|_| AldError::Protocol("msgpack string is not valid UTF-8".into()))?;
+    let s = std::str::from_utf8(raw).map_err(|_| AldError::Protocol("msgpack string is not valid UTF-8".into()))?;
     Ok(CfxValue::Str(s.to_string()))
 }
 
@@ -515,13 +510,13 @@ mod tests {
         // Wire must carry the exact CitizenFX ext tag.
         let b3 = pack(&v3).unwrap();
         assert_eq!(b3[0], 0xC7); // ext8
-        assert_eq!(b3[1], 12);   // 3 x f32
+        assert_eq!(b3[1], 12); // 3 x f32
         assert_eq!(b3[2], ext::VECTOR3 as u8);
         assert_eq!(b3.len(), 3 + 1 + 12 - 1); // 2 hdr + 1 tag + 12 data
 
         let b2 = pack(&v2).unwrap();
         assert_eq!(b2[0], 0xC7); // ext8
-        assert_eq!(b2[1], 8);    // 2 x f32
+        assert_eq!(b2[1], 8); // 2 x f32
         assert_eq!(b2[2], ext::VECTOR2 as u8);
     }
 
@@ -608,17 +603,11 @@ mod tests {
         // format and broke interop, not just internal round-tripping.
         let cases: &[(i8, &[f32], &[u8])] = &[
             (20, &[1.0, 2.0], &[0xC7, 8, 20, 0x3F, 0x80, 0, 0, 0x40, 0, 0, 0]),
-            (
-                21,
-                &[1.0, 2.0, 3.0],
-                &[0xC7, 12, 21, 0x3F, 0x80, 0, 0, 0x40, 0, 0, 0, 0x40, 0x40, 0, 0],
-            ),
+            (21, &[1.0, 2.0, 3.0], &[0xC7, 12, 21, 0x3F, 0x80, 0, 0, 0x40, 0, 0, 0, 0x40, 0x40, 0, 0]),
             (
                 22,
                 &[1.0, 2.0, 3.0, 4.0],
-                &[
-                    0xC7, 16, 22, 0x3F, 0x80, 0, 0, 0x40, 0, 0, 0, 0x40, 0x40, 0, 0, 0x40, 0x80, 0, 0,
-                ],
+                &[0xC7, 16, 22, 0x3F, 0x80, 0, 0, 0x40, 0, 0, 0, 0x40, 0x40, 0, 0, 0x40, 0x80, 0, 0],
             ),
         ];
         for (tag, comps, expected) in cases {

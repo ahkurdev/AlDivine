@@ -1,0 +1,41 @@
+# Aldivine Certified Support Matrix
+
+This document defines the certified compatibility matrix for Project Aldivine releases, governed by `ald-compat-lab` and the Single Source of Truth specification.
+
+## Compatibility Honesty Rule
+
+"100% Supported" strictly means **100% PASS on all gates of a defined certified matrix**.
+If a single gate fails or is marked skipped / external blocker, Aldivine does NOT claim 100% universal compatibility.
+
+---
+
+## Matrix: Aldivine v0.1.0-RC1 Certified Matrix (`matrix-2026-v1`)
+
+| Subsystem / Gate | Target / Build | Certified Status | Notes |
+|---|---|---|---|
+| **Host Build** | Windows 11 x86_64 | **PASS** | Toolchain pinned to 1.98.1 in `rust-toolchain.toml` |
+| **Native Dependency Audit** | `ald-server` | **PASS** | 0 unexpected C/C++ dependencies in core closure |
+| **GTA Legacy Support** | Build 2699 | **PASS** | Build definition registered; synthetic tests pass |
+| **GTA Enhanced Support** | Build 3095 | **PASS** | Build definition registered; synthetic tests pass |
+| **CfxLua Profile** | Lua 5.4 Compat | **PASS** | Vector math, joaat, JSON, msgpack, promise/await verified |
+| **Native Client JS** | QuickJS Embed | **PASS** | Sandboxed Citizen client surface verified |
+| **Node.js Compatibility** | Node 16 / 22 | **PARTIAL** | Engine-independent resolution pass; native V8 host isolated |
+| **CfxCLR / .NET Compatibility**| Mono / CoreCLR | **PARTIAL** | ECMA-335 metadata reader pass; CIL runtime host isolated |
+| **FXManifest Parser** | v1 / v2 / ald_manifest | **PASS** | All documented directives parsed into NormalizedManifest |
+| **Citizen Event Surface** | Reliable & Unreliable | **PASS** | RegisterNetEvent, AddEventHandler, TriggerEvent pass |
+| **State Bags** | Strict Ownership | **PASS** | GlobalState, Entity, Player state bags verified |
+| **Routing Buckets** | Dimensions 1:1 | **PASS** | Dimension isolation and bucket lockdowns pass |
+| **Asset Formats** | .ytd, .yft, .ydd, .ydr | **PASS** | Format headers and magic bytes verified in registry |
+| **DataFile Registry** | vehicles, handling, etc. | **PASS** | Vehicle/handling/carcols archetype graph verified |
+| **Database: PostgreSQL** | PostgreSQL 14..16 | **PASS** | Conformance suite: transactions, JSON, reconnect |
+| **Database: MySQL** | MySQL 8.0+ | **PASS** | Conformance suite: deadlock retries, auto-ids |
+| **Database: MariaDB** | MariaDB 10.6+ | **PASS** | Conformance suite: migration locks, upserts |
+| **ACL: ESX Adapter** | v1.Final / Legacy | **PASS** | Read-only projection of xPlayer, jobs, accounts |
+| **ACL: QBCore Adapter** | QBCore standard | **PASS** | Read-only projection of Player, items, money |
+| **ACL: Qbox Adapter** | Qbox standard | **PASS** | Read-only projection of Player state and exports |
+| **Streaming Pipeline** | Chunked & Resumable | **PASS** | DRR fair scheduler, watchdog, content cache repair |
+| **Security & Anti-Cheat** | Server-Authoritative | **PASS** | Bounds check, speed verification, SSRF blocking, DDoS buckets |
+| **Safe Mode & Symbols** | Crash Loop Protection | **PASS** | Minidump parsing, fingerprinting, auto-quarantine |
+| **Diagnostic Replay** | Deterministic Debugger | **PASS** | Tick-accurate scrubbing, breakpoints, entity replay |
+| **Aegis Node Supervisor**| Process Ownership | **PASS** | Watchdog, crash loops, build rollback, multi-instance |
+| **Distributed Sharding** | Player Handoff | **PASS** | Two-phase handoffs, epoch ownership leases |

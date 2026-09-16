@@ -52,8 +52,8 @@ impl Server {
         );
 
         let started = Instant::now();
-        let (shutdown_tx, shutdown_rx) = watch::channel(false);
-        let state = Arc::new(state::ServerState::new(config, shutdown_rx.clone()));
+        let (shutdown_tx, _shutdown_rx) = watch::channel(false);
+        let state = Arc::new(state::ServerState::new(config, shutdown_tx.clone()));
 
         // Resource lifecycle supervisor (single writer for LifecycleManager).
         let (lifecycle_tx, lifecycle_rx) = mpsc::unbounded_channel::<LifecycleCommand>();

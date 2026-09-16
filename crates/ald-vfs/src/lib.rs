@@ -78,12 +78,7 @@ impl Vfs {
         let canonical = canonicalize_or(root, root)?;
         self.mounts.insert(
             resource.to_string(),
-            Mount {
-                resource: resource.to_string(),
-                root: canonical,
-                shared_with: Vec::new(),
-                writable,
-            },
+            Mount { resource: resource.to_string(), root: canonical, shared_with: Vec::new(), writable },
         );
         Ok(())
     }
@@ -223,9 +218,7 @@ pub fn validate_resource_name(name: &str) -> Result<(), VfsError> {
     if name == "." || name == ".." {
         return Err(VfsError::BadResourceName(name.to_string()));
     }
-    let ok = name
-        .chars()
-        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.'));
+    let ok = name.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.'));
     if !ok {
         return Err(VfsError::BadResourceName(name.to_string()));
     }
@@ -294,10 +287,7 @@ pub fn is_reserved_device_name(comp: &str) -> bool {
             || rest.bytes().all(|b| b.is_ascii_digit())
                 && rest.parse::<u32>().map(|n| (1..=9).contains(&n)).unwrap_or(false);
     }
-    matches!(
-        lower.as_str(),
-        "con" | "prn" | "aux" | "nul" | "conin$" | "conout$" | "$mft" | "$log" | "$volume"
-    )
+    matches!(lower.as_str(), "con" | "prn" | "aux" | "nul" | "conin$" | "conout$" | "$mft" | "$log" | "$volume")
 }
 
 /// Component-wise containment check. Does not touch the filesystem, so it is
@@ -415,7 +405,8 @@ impl Vfs {
     pub fn diagnostics(&self) -> VfsDiagnostics {
         let mut mounts: Vec<String> = self.mounts.keys().cloned().collect();
         mounts.sort_unstable();
-        let mut writable: Vec<String> = self.mounts.values().filter(|m| m.writable).map(|m| m.resource.clone()).collect();
+        let mut writable: Vec<String> =
+            self.mounts.values().filter(|m| m.writable).map(|m| m.resource.clone()).collect();
         writable.sort_unstable();
         let mut shared_edges: Vec<String> = self
             .mounts

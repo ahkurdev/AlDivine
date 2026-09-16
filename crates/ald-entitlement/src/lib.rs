@@ -15,8 +15,6 @@
 
 use std::collections::HashMap;
 
-use ald_core::AldivinePlayerId;
-
 /// Commercial model a package may use.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum PackageModel {
@@ -275,6 +273,7 @@ pub enum Runnability {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ald_core::AldivinePlayerId;
 
     fn free_pkg(id: &str) -> Package {
         Package {

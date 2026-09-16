@@ -190,12 +190,7 @@ impl NormalizedServerConfig {
                     "set" | "setr" | "sets" => d.kv().map(|(_, v)| v),
                     _ => d.first_arg(),
                 }
-                .ok_or(CfgError::WrongArgCount {
-                    line,
-                    verb: d.verb.clone(),
-                    expected: 1,
-                    got: d.args.len(),
-                })?
+                .ok_or(CfgError::WrongArgCount { line, verb: d.verb.clone(), expected: 1, got: d.args.len() })?
             };
         }
         match verb {
@@ -212,11 +207,7 @@ impl NormalizedServerConfig {
             }
             "sv_endpoint" => self.endpoint = Some(one!().to_string()),
             "sv_tags" => {
-                self.tags = one!()
-                    .split([',', ' '])
-                    .filter(|t| !t.is_empty())
-                    .map(str::to_string)
-                    .collect();
+                self.tags = one!().split([',', ' ']).filter(|t| !t.is_empty()).map(str::to_string).collect();
             }
             "sv_locale" => self.locale = Some(one!().to_string()),
             "sv_icon" => self.icon = Some(one!().to_string()),
@@ -250,12 +241,8 @@ impl NormalizedServerConfig {
     }
 
     fn apply_convar(&mut self, d: &Directive, line: u32) -> CfgResult<()> {
-        let (k, v) = d.kv().ok_or(CfgError::WrongArgCount {
-            line,
-            verb: d.verb.clone(),
-            expected: 2,
-            got: d.args.len(),
-        })?;
+        let (k, v) =
+            d.kv().ok_or(CfgError::WrongArgCount { line, verb: d.verb.clone(), expected: 2, got: d.args.len() })?;
         let scope = match d.verb.as_str() {
             "set" => ConvarScope::Local,
             "setr" => ConvarScope::Replicated,
@@ -281,12 +268,8 @@ impl NormalizedServerConfig {
     }
 
     fn apply_secret(&mut self, d: &Directive, line: u32) -> CfgResult<()> {
-        let (k, spec) = d.kv().ok_or(CfgError::WrongArgCount {
-            line,
-            verb: d.verb.clone(),
-            expected: 2,
-            got: d.args.len(),
-        })?;
+        let (k, spec) =
+            d.kv().ok_or(CfgError::WrongArgCount { line, verb: d.verb.clone(), expected: 2, got: d.args.len() })?;
         let handle = SecretHandle::parse(spec)?;
         self.secrets.insert(k.to_string(), SecretConvar { handle, source_line: line });
         Ok(())
@@ -299,25 +282,14 @@ impl NormalizedServerConfig {
             expected: 1,
             got: d.args.len(),
         })?;
-        self.resources.push(ResourceDirective {
-            action: d.verb.clone(),
-            name: name.to_string(),
-            source_line: line,
-        });
+        self.resources.push(ResourceDirective { action: d.verb.clone(), name: name.to_string(), source_line: line });
         Ok(())
     }
 
     fn apply_ace(&mut self, d: &Directive, line: u32) -> CfgResult<()> {
         let (principal, object, granted) = match d.args.as_slice() {
             [p, o, a, ..] => (p.as_str(), o.as_str(), parse_grant(a.as_str(), line)?),
-            _ => {
-                return Err(CfgError::WrongArgCount {
-                    line,
-                    verb: d.verb.clone(),
-                    expected: 3,
-                    got: d.args.len(),
-                })
-            }
+            _ => return Err(CfgError::WrongArgCount { line, verb: d.verb.clone(), expected: 3, got: d.args.len() }),
         };
         // remove_ace X allow == deny X.
         let allow = if d.verb == "add_ace" { granted } else { !granted };
@@ -328,14 +300,7 @@ impl NormalizedServerConfig {
     fn apply_principal(&mut self, d: &Directive, line: u32) -> CfgResult<()> {
         let (principal, parent) = match d.args.as_slice() {
             [p, parent, ..] => (p.as_str(), parent.as_str()),
-            _ => {
-                return Err(CfgError::WrongArgCount {
-                    line,
-                    verb: d.verb.clone(),
-                    expected: 2,
-                    got: d.args.len(),
-                })
-            }
+            _ => return Err(CfgError::WrongArgCount { line, verb: d.verb.clone(), expected: 2, got: d.args.len() }),
         };
         let add = d.verb == "add_principal";
         self.principals.push(PrincipalRule {
@@ -401,14 +366,10 @@ impl NormalizedServerConfig {
         }
 
         if let Some(mode) = &self.license_mode {
-            const MODES: &[&str] = &[
-                "free", "aldivine", "paid", "subscription", "private", "developer", "beta", "invite_only",
-            ];
+            const MODES: &[&str] =
+                &["free", "aldivine", "paid", "subscription", "private", "developer", "beta", "invite_only"];
             if !MODES.contains(&mode.as_str()) {
-                return Err(CfgError::InvalidValue {
-                    line: 0,
-                    reason: format!("unknown license_mode `{mode}`"),
-                });
+                return Err(CfgError::InvalidValue { line: 0, reason: format!("unknown license_mode `{mode}`") });
             }
         }
 
@@ -456,10 +417,9 @@ fn parse_grant(raw: &str, line: u32) -> CfgResult<bool> {
     match raw.trim().to_ascii_lowercase().as_str() {
         "allow" => Ok(true),
         "deny" => Ok(false),
-        other => Err(CfgError::InvalidValue {
-            line,
-            reason: format!("ace rule must be `allow` or `deny`, got `{other}`"),
-        }),
+        other => {
+            Err(CfgError::InvalidValue { line, reason: format!("ace rule must be `allow` or `deny`, got `{other}`") })
+        }
     }
 }
 
@@ -467,10 +427,7 @@ fn parse_bool(raw: &str, line: u32, ctx: &str) -> CfgResult<bool> {
     match raw.trim().to_ascii_lowercase().as_str() {
         "true" | "1" | "yes" | "on" => Ok(true),
         "false" | "0" | "no" | "off" => Ok(false),
-        other => Err(CfgError::InvalidValue {
-            line,
-            reason: format!("`{ctx}` expects a boolean, got `{other}`"),
-        }),
+        other => Err(CfgError::InvalidValue { line, reason: format!("`{ctx}` expects a boolean, got `{other}`") }),
     }
 }
 
@@ -503,9 +460,7 @@ pub fn is_typed_directive(name: &str) -> bool {
 /// Heuristic for convar names that must never be public metadata.
 fn looks_secret(k: &str) -> bool {
     let k = k.to_ascii_lowercase();
-    const HINTS: &[&str] = &[
-        "secret", "password", "passwd", "key", "token", "credential", "url", "dsn", "connection",
-    ];
+    const HINTS: &[&str] = &["secret", "password", "passwd", "key", "token", "credential", "url", "dsn", "connection"];
     HINTS.iter().any(|h| k.contains(h))
 }
 
@@ -526,9 +481,9 @@ pub fn redact_convar(name: &str, value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::include_resolver::{IncludeResolver, InMemoryFs, Vfs};
-    use crate::parse::{parse_document, ParseOptions};
     use crate::error::is_root_only;
+    use crate::include_resolver::{InMemoryFs, IncludeResolver};
+    use crate::parse::{parse_document, ParseOptions};
 
     fn cfg_from(text: &str) -> CfgResult<NormalizedServerConfig> {
         let doc = parse_document("<test>", text, &ParseOptions::default())?;
@@ -681,10 +636,7 @@ mod tests {
     #[test]
     fn full_include_pipeline() {
         let mut fs = InMemoryFs::new();
-        fs.insert(
-            "server.cfg",
-            "# main\nset sv_maxclients 48\nexec config/database.cfg\nensure [system]\n",
-        );
+        fs.insert("server.cfg", "# main\nset sv_maxclients 48\nexec config/database.cfg\nensure [system]\n");
         fs.insert(
             "config/database.cfg",
             "set_secret database_url env:ALD_TEST_DB2\nset database_driver \"postgres\"\n",
@@ -704,9 +656,7 @@ mod tests {
         std::env::remove_var("ALD_TEST_DB2");
 
         let root = "# main\nset sv_maxclients 48\nexec config/database.cfg\nensure [system]\n";
-        let rc =
-            NormalizedServerConfig::from_root("server.cfg", root, &ParseOptions::default())
-                .unwrap();
+        let rc = NormalizedServerConfig::from_root("server.cfg", root, &ParseOptions::default()).unwrap();
         assert_eq!(rc.includes, vec!["config/database.cfg"]);
     }
 

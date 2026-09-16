@@ -15,10 +15,8 @@ impl AldivinePaths {
     /// Resolve from the platform convention. Falls back to a temp dir if
     /// LOCALAPPDATA is unavailable (tests, containers).
     pub fn resolve() -> Self {
-        let root = std::env::var_os("LOCALAPPDATA")
-            .map(PathBuf::from)
-            .unwrap_or_else(|| std::env::temp_dir())
-            .join("Aldivine");
+        let root =
+            std::env::var_os("LOCALAPPDATA").map(PathBuf::from).unwrap_or_else(std::env::temp_dir).join("Aldivine");
         AldivinePaths::from_root(root)
     }
 

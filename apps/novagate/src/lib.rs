@@ -25,7 +25,7 @@ pub mod paths;
 pub mod update;
 
 pub use browser::{BrowserState, DirectConnect, HistoryEntry, ResolvedConnect, ServerEntry};
-pub use detection::{detect_gta_installation, GameDistribution, InstallationResult};
+pub use detection::{detect_gta_installation, DetectionStatus, GameDistribution, InstallationResult};
 pub use paths::AldivinePaths;
 pub use update::{validate_update, verify_update_file, UpdateError};
 

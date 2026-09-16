@@ -1,0 +1,13 @@
+[package]
+name = "ald-state"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+thiserror.workspace = true
+
+[lib]
+name = "ald_state"
+path = "src/lib.rs"

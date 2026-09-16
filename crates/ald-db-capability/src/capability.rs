@@ -67,10 +67,7 @@ impl std::fmt::Display for Capability {
 
 /// Wrap a backend error with the capability that was under test.
 pub fn cap_err(capability: Capability, backend: Backend, reason: impl Into<String>) -> AldError {
-    AldError::Config(format!(
-        "DB capability `{capability}` unsupported on {backend}: {}",
-        reason.into()
-    ))
+    AldError::Config(format!("DB capability `{capability}` unsupported on {backend}: {}", reason.into()))
 }
 
 /// (backend, capabilities it claims). `Backend::supports` reads this.
@@ -158,11 +155,7 @@ impl Backend {
                 .map(|(_, caps)| caps.to_vec())
                 .unwrap_or_default()
         } else {
-            CAPABILITY_MATRIX
-                .iter()
-                .find(|(b, _)| *b == self)
-                .map(|(_, caps)| caps.to_vec())
-                .unwrap_or_default()
+            CAPABILITY_MATRIX.iter().find(|(b, _)| *b == self).map(|(_, caps)| caps.to_vec()).unwrap_or_default()
         }
     }
 }

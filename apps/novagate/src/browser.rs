@@ -68,7 +68,7 @@ impl BrowserState {
 
     pub fn favorites(&self) -> Vec<&ServerEntry> {
         let mut f: Vec<&ServerEntry> = self.favorites.values().collect();
-        f.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+        f.sort_by_key(|a| a.name.to_lowercase());
         f
     }
 

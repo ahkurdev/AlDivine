@@ -206,7 +206,7 @@ fn hex_encode(bytes: &[u8]) -> String {
 }
 
 fn hex_decode(hex: &str) -> Option<Vec<u8>> {
-    if hex.len() % 2 != 0 {
+    if !hex.len().is_multiple_of(2) {
         return None;
     }
     let mut out = Vec::with_capacity(hex.len() / 2);
@@ -257,7 +257,7 @@ mod tests {
     use rand::rngs::OsRng;
 
     fn signed_manifest(payload: &[(String, Vec<u8>)]) -> (PackageManifest, std::collections::HashMap<String, Vec<u8>>) {
-        let mut keys = SigningKey::generate(&mut OsRng);
+        let keys = SigningKey::generate(&mut OsRng);
         let mut file_hashes = Vec::new();
         let mut payloads = std::collections::HashMap::new();
         let mut total = 0u64;

@@ -87,3 +87,60 @@ fn migrate_clean_resource_is_easy() {
 
     fs::remove_dir_all(&tmp).ok();
 }
+
+#[test]
+fn dependencies_audit_native_passes_on_clean_core() {
+    // Workspace root = two ancestors above cli/ald.
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..").join("..");
+    assert!(root.join("Cargo.lock").exists(), "workspace root not found");
+
+    let out = Command::new(binary())
+        .args(["dependencies", "audit-native"])
+        .current_dir(&root)
+        .output()
+        .expect("ald binary runs");
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(out.status.success(), "audit failed: {stdout} {}", String::from_utf8_lossy(&out.stderr));
+    assert!(stdout.contains("ald-server: PASS"), "expected PASS line: {stdout}");
+}
+
+#[test]
+fn base_resources_validate_successfully() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..").join("..");
+    let resources = ["spawn", "chat", "session", "loading", "commands", "help", "devtools"];
+
+    for r in resources {
+        let manifest_path = root.join("base-resources").join(r).join("ald_manifest.toml");
+        assert!(manifest_path.exists(), "manifest for {r} must exist at {manifest_path:?}");
+
+        let out = Command::new(binary())
+            .args(["resource", "validate", manifest_path.to_str().unwrap()])
+            .output()
+            .expect("ald binary runs");
+
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        assert!(out.status.success(), "validation failed for {r}: {stdout} {}", String::from_utf8_lossy(&out.stderr));
+        assert!(stdout.contains(&format!("resource '{r}'")), "expected resource name {r} in output: {stdout}");
+    }
+}
+
+#[test]
+fn report_create_outputs_sanitized_bundle() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("..").join("..");
+    let out_file = std::env::temp_dir().join(format!("aldreport-{}.json", std::process::id()));
+
+    let out = Command::new(binary())
+        .args(["report", "create", root.to_str().unwrap(), "--out", out_file.to_str().unwrap()])
+        .output()
+        .expect("ald binary runs");
+
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(out.status.success(), "report create failed: {stdout} {}", String::from_utf8_lossy(&out.stderr));
+    assert!(out_file.exists(), "report output file must exist");
+
+    let content = fs::read_to_string(&out_file).unwrap();
+    assert!(content.contains("\"bundle_version\": \"1.0.0\""));
+    assert!(content.contains("\"manifests\""));
+
+    fs::remove_file(&out_file).ok();
+}

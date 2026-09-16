@@ -1,0 +1,6 @@
+# Pin the Rust toolchain for reproducible builds (release CI uses
+# `cargo build --locked`; this file pins the compiler itself).
+# Pinned 2026-09-16: matches the validated dev environment below.
+[toolchain]
+channel = "1.98.1"
+profile = "default"

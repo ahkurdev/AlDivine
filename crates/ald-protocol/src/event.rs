@@ -42,12 +42,7 @@ impl EventEnvelope {
         event: impl Into<String>,
         data: &CfxValue,
     ) -> Result<Self, AldError> {
-        Ok(Self {
-            source_resource: source_resource.into(),
-            event: event.into(),
-            data: pack_cfx(data)?,
-            seq: 0,
-        })
+        Ok(Self { source_resource: source_resource.into(), event: event.into(), data: pack_cfx(data)?, seq: 0 })
     }
 
     /// Decode the event payload as a CfxValue.

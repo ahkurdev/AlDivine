@@ -75,14 +75,8 @@ impl CheckResult {
 
 impl CapabilityReport {
     pub fn new(backend: Backend, checks: Vec<CheckResult>) -> Self {
-        let verdict = if checks
-            .iter()
-            .any(|c| c.status == CheckStatus::Fail)
-        {
-            Verdict::Blocked
-        } else {
-            Verdict::Pass
-        };
+        let verdict =
+            if checks.iter().any(|c| c.status == CheckStatus::Fail) { Verdict::Blocked } else { Verdict::Pass };
         CapabilityReport { backend, verdict, checks }
     }
 

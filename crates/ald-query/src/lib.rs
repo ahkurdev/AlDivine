@@ -142,7 +142,7 @@ impl ServerStatus {
             // Last resort: drop long prose fields, keep identity + counts.
             cur.project_desc = None;
             if serde_json::to_string(&cur).map_err(|e| QueryError::Render(e.to_string()))?.len() <= MAX_RESPONSE_BYTES {
-                return Ok(serde_json::to_string(&cur).map_err(|e| QueryError::Render(e.to_string()))?);
+                return serde_json::to_string(&cur).map_err(|e| QueryError::Render(e.to_string()));
             }
             return Err(QueryError::TooLarge);
         }
@@ -352,7 +352,10 @@ mod tests {
     fn large_status_sheds_players_then_fails_loudly() {
         let mut s = status();
         s.players = (0..10_000)
-            .map(|i| QueryPlayer { name: format!("PlayerNumber{i}"), label: Some("A fairly long label that takes room".into()) })
+            .map(|i| QueryPlayer {
+                name: format!("PlayerNumber{i}"),
+                label: Some("A fairly long label that takes room".into()),
+            })
             .collect();
         let j = s.to_native_json().unwrap();
         assert!(j.len() <= MAX_RESPONSE_BYTES);
@@ -365,7 +368,8 @@ mod tests {
         let mut s = status();
         s.listed = false;
         let mut lim = QueryRateLimiter::new(10, Duration::from_secs(1));
-        let out = handle_query_probe(&s, &mut lim, IpAddr::V4(Ipv4Addr::LOCALHOST), &QueryProbe::new(7).encode()).unwrap();
+        let out =
+            handle_query_probe(&s, &mut lim, IpAddr::V4(Ipv4Addr::LOCALHOST), &QueryProbe::new(7).encode()).unwrap();
         let txt = String::from_utf8(out).unwrap();
         assert!(txt.contains("\"nonce\":7"));
         assert!(!txt.contains("Alice"));

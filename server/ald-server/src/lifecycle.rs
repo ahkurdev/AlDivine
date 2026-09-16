@@ -86,8 +86,8 @@ mod tests {
     use ald_config::Config;
 
     fn dummy() -> (Arc<ServerState>, mpsc::UnboundedSender<LifecycleCommand>, LifecycleSupervisor) {
-        let (_tx, rx) = tokio::sync::watch::channel(false);
-        let state = Arc::new(ServerState::new(Config::default(), rx));
+        let (shutdown_tx, _rx) = tokio::sync::watch::channel(false);
+        let state = Arc::new(ServerState::new(Config::default(), shutdown_tx));
         let (tx, rx2) = mpsc::unbounded_channel();
         let supervisor = LifecycleSupervisor::new(Arc::clone(&state));
         // Drop rx2 to keep the channel quiescent; supervisor gets its own.

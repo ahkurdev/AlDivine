@@ -4,10 +4,14 @@
 
 use std::collections::HashMap;
 
-use ald_core::EntityId;
+pub use ald_core::EntityId;
 
+pub mod dimensions;
+pub mod ownership;
 pub mod spatial;
 
+pub use dimensions::{DimensionId, DimensionMap};
+pub use ownership::{owner_of, transfer, TransferOutcome, TransferRefusal};
 pub use spatial::{interest_tier, replication_set, InterestTier, SpatialGrid, Vec3};
 
 /// Owner of an entity. Server-authoritative by default.

@@ -44,8 +44,7 @@ impl Vfs for InMemoryFs {
 
 impl InMemoryFs {
     fn norm(p: String) -> String {
-        p.trim_start_matches("./")
-            .replace(std::path::MAIN_SEPARATOR, "/")
+        p.trim_start_matches("./").replace(std::path::MAIN_SEPARATOR, "/")
     }
 }
 
@@ -70,10 +69,8 @@ impl<'fs> IncludeResolver<'fs> {
     /// directives are inlined in order; their original line numbers are remapped to
     /// their position in the flattened document so errors point at the merged file.
     pub fn resolve(&self, root_path: &str) -> CfgResult<Document> {
-        let text = self
-            .fs
-            .read(root_path)
-            .ok_or_else(|| CfgError::IncludeMissing { line: 0, path: root_path.to_string() })?;
+        let text =
+            self.fs.read(root_path).ok_or_else(|| CfgError::IncludeMissing { line: 0, path: root_path.to_string() })?;
         let root = parse_document(root_path, &text, &self.opts)?;
         let mut out = Document::new(root_path);
         let mut visited: Vec<String> = vec![normalize_owned(root_path)];
@@ -121,31 +118,22 @@ impl<'fs> IncludeResolver<'fs> {
         // Absolute paths and traversal are refused: includes must stay under the config root.
         // Note: on Windows, `Path::is_absolute()` is false for "/etc/passwd", so leading
         // separators are rejected explicitly — a POSIX absolute path must not slip through.
-        if target.starts_with('/') || target.starts_with('\\')
-            || std::path::Path::new(target).is_absolute()
-        {
+        if target.starts_with('/') || target.starts_with('\\') || std::path::Path::new(target).is_absolute() {
             return Err(CfgError::IncludeOutsideRoot { line: at_line, path: target.into() });
         }
         if target.split(['/', '\\']).any(|c| c == "..") {
             return Err(CfgError::IncludeTraversal { line: at_line, path: target.into() });
         }
         if depth >= MAX_INCLUDE_DEPTH {
-            return Err(CfgError::IncludeDepthLimit {
-                line: at_line,
-                path: target.into(),
-                limit: MAX_INCLUDE_DEPTH,
-            });
+            return Err(CfgError::IncludeDepthLimit { line: at_line, path: target.into(), limit: MAX_INCLUDE_DEPTH });
         }
         let norm = normalize_owned(target);
-        if chain.iter().any(|c| *c == norm) {
+        if chain.contains(&norm) {
             let chain_str = chain.join(" -> ");
             return Err(CfgError::IncludeCycle { line: at_line, path: target.into(), chain: chain_str });
         }
 
-        let text = self
-            .fs
-            .read(&norm)
-            .ok_or_else(|| CfgError::IncludeMissing { line: at_line, path: norm.clone() })?;
+        let text = self.fs.read(&norm).ok_or_else(|| CfgError::IncludeMissing { line: at_line, path: norm.clone() })?;
         let child = parse_document(&norm, &text, &self.opts)?;
         chain.push(norm);
         self.expand(child, out, chain, depth + 1, at_line)?;
@@ -162,7 +150,7 @@ fn normalize_owned(p: &str) -> String {
 mod tests {
     use super::*;
     use crate::ast::Directive;
-    use crate::ast::Value;
+
     use crate::error::is_root_only;
 
     fn resolver(files: &[(&str, &str)]) -> (InMemoryFs, IncludeResolver<'static>) {
@@ -200,10 +188,7 @@ mod tests {
 
     #[test]
     fn traversal_rejected() {
-        let (_, r) = resolver(&[
-            ("server.cfg", "exec ../secret.cfg\n"),
-            ("secret.cfg", "set_secret k v\n"),
-        ]);
+        let (_, r) = resolver(&[("server.cfg", "exec ../secret.cfg\n"), ("secret.cfg", "set_secret k v\n")]);
         let e = r.resolve("server.cfg").unwrap_err();
         assert!(matches!(e, CfgError::IncludeTraversal { .. }));
     }
@@ -217,10 +202,7 @@ mod tests {
 
     #[test]
     fn direct_cycle_rejected() {
-        let (_, r) = resolver(&[
-            ("a.cfg", "exec b.cfg\n"),
-            ("b.cfg", "exec a.cfg\n"),
-        ]);
+        let (_, r) = resolver(&[("a.cfg", "exec b.cfg\n"), ("b.cfg", "exec a.cfg\n")]);
         let e = r.resolve("a.cfg").unwrap_err();
         assert!(matches!(e, CfgError::IncludeCycle { .. }));
     }
@@ -268,41 +250,29 @@ mod tests {
 
     #[test]
     fn backslash_paths_normalized() {
-        let (_, r) = resolver(&[
-            ("server.cfg", "exec config\\db.cfg\n"),
-            ("config/db.cfg", "set db 1\n"),
-        ]);
+        let (_, r) = resolver(&[("server.cfg", "exec config\\db.cfg\n"), ("config/db.cfg", "set db 1\n")]);
         let doc = r.resolve("server.cfg").unwrap();
         assert_eq!(first_dir(&doc).kv().unwrap().1, "1");
     }
 
     #[test]
     fn include_of_quoted_path() {
-        let (_, r) = resolver(&[
-            ("server.cfg", "exec \"config/db.cfg\"\n"),
-            ("config/db.cfg", "set db 1\n"),
-        ]);
+        let (_, r) = resolver(&[("server.cfg", "exec \"config/db.cfg\"\n"), ("config/db.cfg", "set db 1\n")]);
         let doc = r.resolve("server.cfg").unwrap();
         assert_eq!(first_dir(&doc).kv().unwrap().1, "1");
     }
 
     #[test]
     fn nested_three_levels() {
-        let (_, r) = resolver(&[
-            ("server.cfg", "exec a.cfg\n"),
-            ("a.cfg", "exec b.cfg\n"),
-            ("b.cfg", "set deep true\n"),
-        ]);
+        let (_, r) =
+            resolver(&[("server.cfg", "exec a.cfg\n"), ("a.cfg", "exec b.cfg\n"), ("b.cfg", "set deep true\n")]);
         let doc = r.resolve("server.cfg").unwrap();
         assert_eq!(first_dir(&doc).kv().unwrap(), ("deep", "true"));
     }
 
     #[test]
     fn comments_in_included_files_preserved() {
-        let (_, r) = resolver(&[
-            ("server.cfg", "exec a.cfg\n"),
-            ("a.cfg", "# note\nset x 1\n"),
-        ]);
+        let (_, r) = resolver(&[("server.cfg", "exec a.cfg\n"), ("a.cfg", "# note\nset x 1\n")]);
         let doc = r.resolve("server.cfg").unwrap();
         assert!(matches!(doc.lines[0].kind, LineKind::Comment(_)));
     }
@@ -317,10 +287,7 @@ mod tests {
     #[test]
     fn same_file_included_twice_not_a_cycle() {
         // Two sibling includes of the same file: allowed (no recursion).
-        let (_, r) = resolver(&[
-            ("server.cfg", "exec a.cfg\nexec a.cfg\n"),
-            ("a.cfg", "set x 1\n"),
-        ]);
+        let (_, r) = resolver(&[("server.cfg", "exec a.cfg\nexec a.cfg\n"), ("a.cfg", "set x 1\n")]);
         let doc = r.resolve("server.cfg").unwrap();
         assert_eq!(doc.directives().count(), 2);
     }
@@ -346,10 +313,7 @@ mod tests {
     #[test]
     fn env_expansion_in_included_file() {
         std::env::set_var("ALD_CFG_TEST_DB", "pg://included");
-        let (_, r) = resolver(&[
-            ("server.cfg", "exec a.cfg\n"),
-            ("a.cfg", "set db \"${ALD_CFG_TEST_DB}\"\n"),
-        ]);
+        let (_, r) = resolver(&[("server.cfg", "exec a.cfg\n"), ("a.cfg", "set db \"${ALD_CFG_TEST_DB}\"\n")]);
         let doc = r.resolve("server.cfg").unwrap();
         assert_eq!(first_dir(&doc).kv().unwrap().1, "pg://included");
         std::env::remove_var("ALD_CFG_TEST_DB");

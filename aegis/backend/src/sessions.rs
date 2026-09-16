@@ -68,9 +68,9 @@ impl SessionStore {
 
     /// Look up a session and, if found and live, refresh its idle deadline.
     pub fn validate(&mut self, token: &str, now: u64) -> Option<Session> {
-        let live = match self.sessions.get(token) {
-            Some(s) => s.is_live(now),
-            None => return None,
+        let live = {
+            let s = self.sessions.get(token)?;
+            s.is_live(now)
         };
         if !live {
             self.sessions.remove(token);

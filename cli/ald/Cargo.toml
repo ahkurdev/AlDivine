@@ -13,3 +13,5 @@ ald-core = { path = "../../crates/ald-core" }
 ald-config = { path = "../../crates/ald-config" }
 ald-resource = { path = "../../crates/ald-resource" }
 toml.workspace = true
+serde.workspace = true
+serde_json.workspace = true

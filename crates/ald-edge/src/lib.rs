@@ -67,9 +67,7 @@ impl Default for EdgeConfig {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AdmissionVerdict {
     Allow,
-    DeniedIp {
-        reason: DenyReason,
-    },
+    DeniedIp { reason: DenyReason },
     DeniedRateLimit,
     DeniedOriginCapacity,
     DeniedShielding,
@@ -128,10 +126,7 @@ impl EdgeAdmission {
             shield_nets,
             origin_in_use: 0,
             shielding: false,
-            query_limiter: ald_query::QueryRateLimiter::new(
-                config.query_rate_per_window,
-                config.query_window,
-            ),
+            query_limiter: ald_query::QueryRateLimiter::new(config.query_rate_per_window, config.query_window),
         })
     }
 
@@ -140,11 +135,7 @@ impl EdgeAdmission {
     pub fn admit_connection(&mut self, src: IpAddr) -> AdmissionVerdict {
         if self.denied_ips.contains(&src) || self.net_matches(&self.denied_nets, src) {
             return AdmissionVerdict::DeniedIp {
-                reason: if self.denied_ips.contains(&src) {
-                    DenyReason::BannedIp
-                } else {
-                    DenyReason::BannedNetwork
-                },
+                reason: if self.denied_ips.contains(&src) { DenyReason::BannedIp } else { DenyReason::BannedNetwork },
             };
         }
         // Shielding: origin is down. fail_closed=true denies *everything*
@@ -229,9 +220,7 @@ impl EdgeAdmission {
 fn parse_nets(list: &[String]) -> Result<Vec<(IpAddr, u8)>, EdgeError> {
     list.iter()
         .map(|s| {
-            let (addr, prefix) = s
-                .split_once('/')
-                .ok_or_else(|| EdgeError::BadCidr(s.clone()))?;
+            let (addr, prefix) = s.split_once('/').ok_or_else(|| EdgeError::BadCidr(s.clone()))?;
             let addr: IpAddr = addr.trim().parse().map_err(|_| EdgeError::BadCidr(s.clone()))?;
             let prefix: u8 = prefix.trim().parse().map_err(|_| EdgeError::BadCidr(s.clone()))?;
             let max = if addr.is_ipv4() { 32 } else { 128 };
@@ -329,18 +318,17 @@ fn hmac_sha256_bytes(key: &[u8], msg: &[u8]) -> Vec<u8> {
 /// Minimal SHA-256 (FIPS 180-4). No new dependency.
 fn sha256_bytes(data: &[u8]) -> [u8; 32] {
     const K: [u32; 64] = [
-        0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
-        0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
-        0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
-        0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
-        0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
-        0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
-        0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
-        0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
+        0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5, 0xd807aa98,
+        0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786,
+        0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da, 0x983e5152, 0xa831c66d, 0xb00327c8,
+        0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967, 0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13,
+        0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85, 0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819,
+        0xd6990624, 0xf40e3585, 0x106aa070, 0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a,
+        0x5b9cca4f, 0x682e6ff3, 0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7,
+        0xc67178f2,
     ];
-    let mut h: [u32; 8] = [
-        0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
-    ];
+    let mut h: [u32; 8] =
+        [0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19];
     let ml = (data.len() as u64).wrapping_mul(8);
     let mut padded = data.to_vec();
     padded.push(0x80);
@@ -348,7 +336,7 @@ fn sha256_bytes(data: &[u8]) -> [u8; 32] {
         padded.push(0);
     }
     padded.extend_from_slice(&ml.to_be_bytes());
-    for chunk in padded.chunks_exact(64) {
+    for chunk in padded.as_chunks::<64>().0 {
         let mut w = [0u32; 64];
         for i in 0..16 {
             w[i] = u32::from_be_bytes([chunk[4 * i], chunk[4 * i + 1], chunk[4 * i + 2], chunk[4 * i + 3]]);
@@ -430,7 +418,12 @@ pub struct HealthChecker {
 
 impl HealthChecker {
     pub fn new(failure_threshold: u32) -> Self {
-        HealthChecker { state: OriginHealth::Healthy, last_change: Instant::now(), consecutive_failures: 0, failure_threshold }
+        HealthChecker {
+            state: OriginHealth::Healthy,
+            last_change: Instant::now(),
+            consecutive_failures: 0,
+            failure_threshold,
+        }
     }
 
     pub fn record(&mut self, ok: bool) -> OriginHealth {
@@ -485,15 +478,9 @@ mod tests {
     #[test]
     fn sha256_known_vectors() {
         // FIPS 180-2 test 1
-        assert_eq!(
-            sha256_hex(b"abc"),
-            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
-        );
+        assert_eq!(sha256_hex(b"abc"), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
         // empty
-        assert_eq!(
-            sha256_hex(b""),
-            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-        );
+        assert_eq!(sha256_hex(b""), "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
     }
 
     #[test]
@@ -502,10 +489,7 @@ mod tests {
         let key = [0x0bu8; 20];
         let mac = hmac_sha256_bytes(&key, b"Hi There");
         let hex = mac.iter().map(|b| format!("{b:02x}")).collect::<String>();
-        assert_eq!(
-            hex,
-            "b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9376c2e32cff7"
-        );
+        assert_eq!(hex, "b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9376c2e32cff7");
     }
 
     #[test]

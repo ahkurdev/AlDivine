@@ -46,11 +46,7 @@ pub enum NodeError {
     #[error("unsupported node_version `{0}`: no compatibility profile")]
     UnsupportedNodeVersion(String),
     #[error("package `{name}` requires node `{required}` but profile {profile} does not satisfy it")]
-    EngineMismatch {
-        name: String,
-        required: String,
-        profile: String,
-    },
+    EngineMismatch { name: String, required: String, profile: String },
     #[error("module `{0}` could not be resolved")]
     NotFound(String),
     #[error("invalid integrity string `{0}`")]
@@ -116,11 +112,8 @@ impl NodeProfile {
     /// that shows up much later.
     pub fn from_manifest(value: &str) -> Result<Self, NodeError> {
         let v = value.trim().trim_start_matches('v');
-        let digits: String = v
-            .trim_start_matches(|c: char| !c.is_ascii_digit())
-            .chars()
-            .take_while(|c| c.is_ascii_digit())
-            .collect();
+        let digits: String =
+            v.trim_start_matches(|c: char| !c.is_ascii_digit()).chars().take_while(|c| c.is_ascii_digit()).collect();
         match digits.as_str() {
             "16" | "17" | "18" => Ok(NodeProfile::Node16),
             "20" | "22" | "23" | "24" => Ok(NodeProfile::Node22),
@@ -298,11 +291,8 @@ pub struct Resolved {
     pub from_node_modules: bool,
 }
 
-const PROBE_EXTS: [(&str, ResolveKind); 3] = [
-    (".js", ResolveKind::JavaScript),
-    (".json", ResolveKind::Json),
-    (".node", ResolveKind::NativeAddon),
-];
+const PROBE_EXTS: [(&str, ResolveKind); 3] =
+    [(".js", ResolveKind::JavaScript), (".json", ResolveKind::Json), (".node", ResolveKind::NativeAddon)];
 
 /// Resolve a `require()` specifier using Node's algorithm.
 ///
@@ -311,22 +301,14 @@ const PROBE_EXTS: [(&str, ResolveKind); 3] = [
 /// * anything else — bare specifier: walk `node_modules` upward from
 ///   `from_dir`. Supports scoped names (`@scope/pkg`) and subpaths
 ///   (`pkg/lib/thing`).
-pub fn resolve(
-    spec: &str,
-    from_dir: &str,
-    fs: &impl NodeFileSource,
-) -> Result<Resolved, NodeError> {
+pub fn resolve(spec: &str, from_dir: &str, fs: &impl NodeFileSource) -> Result<Resolved, NodeError> {
     if spec.is_empty() {
         return Err(NodeError::NotFound(spec.to_string()));
     }
     let relative = spec.starts_with("./") || spec.starts_with("../") || spec == "." || spec == "..";
     let absolute = spec.starts_with('/');
     if relative || absolute {
-        let base = if absolute {
-            spec.to_string()
-        } else {
-            join(from_dir, spec)
-        };
+        let base = if absolute { spec.to_string() } else { join(from_dir, spec) };
         return load_as_file_or_dir(&base, fs, false).ok_or_else(|| NodeError::NotFound(spec.into()));
     }
 
@@ -415,11 +397,7 @@ fn ext_of(path: &str) -> Option<&str> {
 
 /// Try `base` as a file (exact, then with probed extensions), then as a
 /// directory (`package.json` main, then `index.*`).
-fn load_as_file_or_dir(
-    base: &str,
-    fs: &impl NodeFileSource,
-    from_node_modules: bool,
-) -> Option<Resolved> {
+fn load_as_file_or_dir(base: &str, fs: &impl NodeFileSource, from_node_modules: bool) -> Option<Resolved> {
     // 1. exact file
     if let Some(bytes) = fs.read(base) {
         let kind = match ext_of(base) {
@@ -428,21 +406,13 @@ fn load_as_file_or_dir(
             _ => ResolveKind::JavaScript,
         };
         let _ = bytes;
-        return Some(Resolved {
-            path: base.to_string(),
-            kind,
-            from_node_modules,
-        });
+        return Some(Resolved { path: base.to_string(), kind, from_node_modules });
     }
     // 2. extension probing
     for (ext, kind) in PROBE_EXTS {
         let cand = format!("{base}{ext}");
         if fs.read(&cand).is_some() {
-            return Some(Resolved {
-                path: cand,
-                kind,
-                from_node_modules,
-            });
+            return Some(Resolved { path: cand, kind, from_node_modules });
         }
     }
     // 3. directory
@@ -464,11 +434,7 @@ fn load_as_file_or_dir(
         for (ext, kind) in PROBE_EXTS {
             let cand = format!("{}/index{}", trim_slash(base), ext);
             if fs.read(&cand).is_some() {
-                return Some(Resolved {
-                    path: cand,
-                    kind,
-                    from_node_modules,
-                });
+                return Some(Resolved { path: cand, kind, from_node_modules });
             }
         }
     }
@@ -503,10 +469,7 @@ pub struct DependencyPlan {
 /// Locked versions win: a plan never silently upgrades. A range with no
 /// satisfying lock entry is reported as unsatisfied rather than resolved from
 /// the network, so an offline or stale-lock install fails loudly.
-pub fn plan_dependencies(
-    dependencies: &BTreeMap<String, String>,
-    locked: &[LockedPackage],
-) -> DependencyPlan {
+pub fn plan_dependencies(dependencies: &BTreeMap<String, String>, locked: &[LockedPackage]) -> DependencyPlan {
     let by_name: BTreeMap<&str, &LockedPackage> = locked.iter().map(|l| (l.name.as_str(), l)).collect();
     let mut install_order = Vec::new();
     let mut unsatisfied = Vec::new();
@@ -522,10 +485,7 @@ pub fn plan_dependencies(
     install_order.sort_by(|a, b| a.name.cmp(&b.name).then(a.version.cmp(&b.version)));
     install_order.dedup_by(|a, b| a.name == b.name);
     unsatisfied.sort();
-    DependencyPlan {
-        install_order,
-        unsatisfied,
-    }
+    DependencyPlan { install_order, unsatisfied }
 }
 
 // ---------------------------------------------------------------------------
@@ -543,9 +503,7 @@ pub struct Integrity {
 }
 
 pub fn parse_integrity(s: &str) -> Result<Integrity, NodeError> {
-    let (algo, b64) = s
-        .split_once('-')
-        .ok_or_else(|| NodeError::Integrity(s.to_string()))?;
+    let (algo, b64) = s.split_once('-').ok_or_else(|| NodeError::Integrity(s.to_string()))?;
     let want = match algo {
         "sha512" => 64,
         "sha256" => 32,
@@ -555,10 +513,7 @@ pub fn parse_integrity(s: &str) -> Result<Integrity, NodeError> {
     if raw.len() != want {
         return Err(NodeError::Integrity(s.to_string()));
     }
-    Ok(Integrity {
-        algorithm: algo.to_string(),
-        hex: hex_lower(&raw),
-    })
+    Ok(Integrity { algorithm: algo.to_string(), hex: hex_lower(&raw) })
 }
 
 /// Verify payload bytes against an integrity string.
@@ -582,14 +537,7 @@ pub fn verify_integrity(integrity: &str, bytes: &[u8]) -> Result<(), NodeError> 
 /// separate mechanism.
 pub fn cache_path(integrity: &Integrity) -> String {
     let h = &integrity.hex;
-    format!(
-        "{}/content-v2/{}/{}/{}/{}",
-        "cache",
-        integrity.algorithm,
-        &h[0..2],
-        &h[2..4],
-        &h[4..]
-    )
+    format!("{}/content-v2/{}/{}/{}/{}", "cache", integrity.algorithm, &h[0..2], &h[2..4], &h[4..])
 }
 
 fn hex_lower(bytes: &[u8]) -> String {
@@ -646,11 +594,7 @@ pub struct InstallPolicy {
 
 impl Default for InstallPolicy {
     fn default() -> Self {
-        InstallPolicy {
-            allow_install_scripts: false,
-            allow_native_addons: false,
-            host_target: default_target(),
-        }
+        InstallPolicy { allow_install_scripts: false, allow_native_addons: false, host_target: default_target() }
     }
 }
 
@@ -670,25 +614,15 @@ fn default_target() -> String {
 /// non-empty list with addons disallowed is a hard refusal, not a warning —
 /// loading an unreviewed native object into the server process is precisely
 /// the boundary the spec draws.
-pub fn evaluate_install(
-    pkg: &PackageJson,
-    native_addons: &[String],
-    policy: &InstallPolicy,
-) -> Result<(), NodeError> {
+pub fn evaluate_install(pkg: &PackageJson, native_addons: &[String], policy: &InstallPolicy) -> Result<(), NodeError> {
     if !policy.allow_install_scripts {
         if let Some((name, _)) = pkg.install_scripts().first() {
-            return Err(NodeError::InstallScriptDisabled(format!(
-                "{} ({name})",
-                pkg.name
-            )));
+            return Err(NodeError::InstallScriptDisabled(format!("{} ({name})", pkg.name)));
         }
     }
     if !native_addons.is_empty() {
         if !policy.allow_native_addons {
-            return Err(NodeError::NativeAddonBlocked(
-                pkg.name.clone(),
-                native_addons[0].clone(),
-            ));
+            return Err(NodeError::NativeAddonBlocked(pkg.name.clone(), native_addons[0].clone()));
         }
         // Declared cpu targets, when present, must include this host.
         if !pkg.cpu.is_empty() && !pkg.cpu.iter().any(|c| policy.host_target.contains(c.as_str())) {
@@ -732,22 +666,19 @@ pub const CAP_CHILD: &str = "node.child_process";
 pub fn builtin_access(name: &str) -> BuiltinAccess {
     let n = name.strip_prefix("node:").unwrap_or(name);
     match n {
-        "assert" | "buffer" | "events" | "path" | "querystring" | "string_decoder" | "url"
-        | "util" | "punycode" => BuiltinAccess::Allowed,
+        "assert" | "buffer" | "events" | "path" | "querystring" | "string_decoder" | "url" | "util" | "punycode" => {
+            BuiltinAccess::Allowed
+        }
 
         "crypto" => BuiltinAccess::CapabilityGated("node.crypto"),
 
         "fs" | "fs/promises" | "os" => BuiltinAccess::CapabilityGated(CAP_FS),
 
-        "net" | "http" | "https" | "http2" | "dns" | "tls" | "dgram" => {
-            BuiltinAccess::CapabilityGated(CAP_NET)
-        }
+        "net" | "http" | "https" | "http2" | "dns" | "tls" | "dgram" => BuiltinAccess::CapabilityGated(CAP_NET),
 
         "process" => BuiltinAccess::CapabilityGated(CAP_PROCESS),
 
-        "child_process" | "cluster" | "worker_threads" | "vm" => {
-            BuiltinAccess::CapabilityGated(CAP_CHILD)
-        }
+        "child_process" | "cluster" | "worker_threads" | "vm" => BuiltinAccess::CapabilityGated(CAP_CHILD),
 
         // No ambient authority is ever granted to these from a resource.
         "module" | "repl" | "inspector" | "v8" | "perf_hooks" | "trace_events" | "diagnostics_channel" => {
@@ -854,10 +785,7 @@ mod tests {
         assert_eq!(NodeProfile::from_manifest("22").unwrap(), NodeProfile::Node22);
         assert_eq!(NodeProfile::from_manifest("v20.11").unwrap(), NodeProfile::Node22);
         assert_eq!(NodeProfile::from_manifest(">=18").unwrap(), NodeProfile::Node16);
-        assert!(matches!(
-            NodeProfile::from_manifest("12"),
-            Err(NodeError::UnsupportedNodeVersion(_))
-        ));
+        assert!(matches!(NodeProfile::from_manifest("12"), Err(NodeError::UnsupportedNodeVersion(_))));
     }
 
     #[test]
@@ -946,10 +874,7 @@ mod tests {
             .file("/res/other/package.json", r#"{"name":"other","main":"entry.js"}"#)
             .file("/res/other/entry.js", "y");
         assert_eq!(resolve("./sub", "/res", &fs).unwrap().path, "/res/sub/index.js");
-        assert_eq!(
-            resolve("./other", "/res", &fs).unwrap().path,
-            "/res/other/entry.js"
-        );
+        assert_eq!(resolve("./other", "/res", &fs).unwrap().path, "/res/other/entry.js");
     }
 
     #[test]
@@ -968,15 +893,9 @@ mod tests {
             .file("/res/a/b/node_modules/left-pad/index.js", "x")
             .file("/res/node_modules/top/index.js", "y");
         // direct hit in the local node_modules
-        assert_eq!(
-            resolve("left-pad", "/res/a/b", &fs).unwrap().path,
-            "/res/a/b/node_modules/left-pad/index.js"
-        );
+        assert_eq!(resolve("left-pad", "/res/a/b", &fs).unwrap().path, "/res/a/b/node_modules/left-pad/index.js");
         // walk up: not in /res/a/b/node_modules, found in /res/node_modules
-        assert_eq!(
-            resolve("top", "/res/a/b", &fs).unwrap().path,
-            "/res/node_modules/top/index.js"
-        );
+        assert_eq!(resolve("top", "/res/a/b", &fs).unwrap().path, "/res/node_modules/top/index.js");
     }
 
     #[test]
@@ -984,10 +903,7 @@ mod tests {
         let fs = MemTree::default()
             .file("/res/node_modules/@scope/pkg/index.js", "x")
             .file("/res/node_modules/@scope/pkg/lib/deep.js", "y");
-        assert_eq!(
-            resolve("@scope/pkg", "/res", &fs).unwrap().path,
-            "/res/node_modules/@scope/pkg/index.js"
-        );
+        assert_eq!(resolve("@scope/pkg", "/res", &fs).unwrap().path, "/res/node_modules/@scope/pkg/index.js");
         assert_eq!(
             resolve("@scope/pkg/lib/deep", "/res", &fs).unwrap().path,
             "/res/node_modules/@scope/pkg/lib/deep.js"
@@ -1000,10 +916,7 @@ mod tests {
         // `require('bcrypt')` with only a bare .node file would not resolve in
         // Node either, so the fixture mirrors the real layout.
         let fs = MemTree::default()
-            .file(
-                "/res/node_modules/bcrypt/package.json",
-                r#"{"name":"bcrypt","main":"bcrypt.node"}"#,
-            )
+            .file("/res/node_modules/bcrypt/package.json", r#"{"name":"bcrypt","main":"bcrypt.node"}"#)
             .file("/res/node_modules/bcrypt/bcrypt.node", "MZ");
         let r = resolve("bcrypt", "/res", &fs).unwrap();
         assert_eq!(r.path, "/res/node_modules/bcrypt/bcrypt.node");
@@ -1012,7 +925,7 @@ mod tests {
         // and the addon is refused by the default install policy
         let pkg = parse_package_json(r#"{"name":"bcrypt","main":"bcrypt.node"}"#).unwrap();
         assert!(matches!(
-            evaluate_install(&pkg, &[r.path.clone()], &InstallPolicy::default()),
+            evaluate_install(&pkg, std::slice::from_ref(&r.path), &InstallPolicy::default()),
             Err(NodeError::NativeAddonBlocked(_, _))
         ));
     }
@@ -1020,14 +933,8 @@ mod tests {
     #[test]
     fn unresolved_module_is_an_error_not_a_noop() {
         let fs = MemTree::default().file("/res/main.js", "x");
-        assert!(matches!(
-            resolve("./nope", "/res", &fs),
-            Err(NodeError::NotFound(_))
-        ));
-        assert!(matches!(
-            resolve("not-installed", "/res", &fs),
-            Err(NodeError::NotFound(_))
-        ));
+        assert!(matches!(resolve("./nope", "/res", &fs), Err(NodeError::NotFound(_))));
+        assert!(matches!(resolve("not-installed", "/res", &fs), Err(NodeError::NotFound(_))));
         assert!(resolve("", "/res", &fs).is_err());
     }
 
@@ -1071,10 +978,7 @@ mod tests {
         let locked = vec![lock("b", "2.1.0"), lock("a", "1.2.9")];
         let plan = plan_dependencies(&deps, &locked);
         assert!(plan.unsatisfied.is_empty());
-        assert_eq!(
-            plan.install_order.iter().map(|p| p.name.as_str()).collect::<Vec<_>>(),
-            vec!["a", "b"]
-        );
+        assert_eq!(plan.install_order.iter().map(|p| p.name.as_str()).collect::<Vec<_>>(), vec!["a", "b"]);
     }
 
     #[test]
@@ -1085,10 +989,7 @@ mod tests {
         let plan = plan_dependencies(&deps, &[lock("a", "1.0.0")]);
         assert_eq!(
             plan.unsatisfied,
-            vec![
-                ("a".to_string(), "^3.0.0".to_string()),
-                ("missing".to_string(), "1.0.0".to_string())
-            ]
+            vec![("a".to_string(), "^3.0.0".to_string()), ("missing".to_string(), "1.0.0".to_string())]
         );
         assert!(plan.install_order.is_empty());
     }
@@ -1109,30 +1010,19 @@ mod tests {
         const A: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
         let mut out = String::new();
         for chunk in bytes.chunks(3) {
-            let b = [
-                chunk[0],
-                *chunk.get(1).unwrap_or(&0),
-                *chunk.get(2).unwrap_or(&0),
-            ];
+            let b = [chunk[0], *chunk.get(1).unwrap_or(&0), *chunk.get(2).unwrap_or(&0)];
             let n = ((b[0] as u32) << 16) | ((b[1] as u32) << 8) | b[2] as u32;
             out.push(A[(n >> 18) as usize & 63] as char);
             out.push(A[(n >> 12) as usize & 63] as char);
-            out.push(if chunk.len() > 1 {
-                A[(n >> 6) as usize & 63] as char
-            } else {
-                '='
-            });
-            out.push(if chunk.len() > 2 {
-                A[n as usize & 63] as char
-            } else {
-                '='
-            });
+            out.push(if chunk.len() > 1 { A[(n >> 6) as usize & 63] as char } else { '=' });
+            out.push(if chunk.len() > 2 { A[n as usize & 63] as char } else { '=' });
         }
         out
     }
 
     /// Independently computed reference: sha512 of b"hello" is well known.
-    const SHA512_HELLO_B64: &str = "m3HSJL1i83hdltRq0+o9czGb+8KJDKra4t/3JRlnPKcjI8PZm6XBHXx6zG4UuMXaDEZjR1wuXDre9G9zvN7AQw==";
+    const SHA512_HELLO_B64: &str =
+        "m3HSJL1i83hdltRq0+o9czGb+8KJDKra4t/3JRlnPKcjI8PZm6XBHXx6zG4UuMXaDEZjR1wuXDre9G9zvN7AQw==";
     const SHA256_HELLO_B64: &str = "LPJNul+wow4m6DsqxbninhsWHlwfp0JecwQzYpOLmCQ=";
 
     #[test]
@@ -1150,18 +1040,12 @@ mod tests {
         let s256 = format!("sha256-{SHA256_HELLO_B64}");
         assert!(verify_integrity(&s512, b"hello").is_ok());
         assert!(verify_integrity(&s256, b"hello").is_ok());
-        assert!(matches!(
-            verify_integrity(&s512, b"hellp"),
-            Err(NodeError::IntegrityMismatch(_))
-        ));
+        assert!(matches!(verify_integrity(&s512, b"hellp"), Err(NodeError::IntegrityMismatch(_))));
     }
 
     #[test]
     fn integrity_rejects_unknown_algorithm_and_malformed() {
-        assert!(matches!(
-            parse_integrity("md5-YWJj"),
-            Err(NodeError::Integrity(_))
-        ));
+        assert!(matches!(parse_integrity("md5-YWJj"), Err(NodeError::Integrity(_))));
         assert!(matches!(parse_integrity("nonsense"), Err(NodeError::Integrity(_))));
         // right algorithm, wrong digest length
         assert!(parse_integrity("sha512-YWJj").is_err());
@@ -1190,18 +1074,14 @@ mod tests {
         let err = evaluate_install(&p, &[], &InstallPolicy::default()).unwrap_err();
         assert!(matches!(err, NodeError::InstallScriptDisabled(_)));
         // explicit opt-in passes
-        let policy = InstallPolicy {
-            allow_install_scripts: true,
-            ..Default::default()
-        };
+        let policy = InstallPolicy { allow_install_scripts: true, ..Default::default() };
         assert!(evaluate_install(&p, &[], &policy).is_ok());
     }
 
     #[test]
     fn native_addons_are_blocked_by_default() {
         let p = parse_package_json(r#"{"name":"bcrypt"}"#).unwrap();
-        let err = evaluate_install(&p, &["bcrypt.node".to_string()], &InstallPolicy::default())
-            .unwrap_err();
+        let err = evaluate_install(&p, &["bcrypt.node".to_string()], &InstallPolicy::default()).unwrap_err();
         assert!(matches!(err, NodeError::NativeAddonBlocked(_, _)));
     }
 
@@ -1235,12 +1115,9 @@ mod tests {
         assert_eq!(builtin_access("util"), BuiltinAccess::Allowed);
         assert_eq!(builtin_access("buffer"), BuiltinAccess::Allowed);
         assert_eq!(builtin_access("fs"), BuiltinAccess::CapabilityGated(CAP_FS));
-        assert_eq!(builtin_access("net").is_gated(), true);
+        assert!(builtin_access("net").is_gated());
         assert_eq!(builtin_access("process"), BuiltinAccess::CapabilityGated(CAP_PROCESS));
-        assert_eq!(
-            builtin_access("child_process"),
-            BuiltinAccess::CapabilityGated(CAP_CHILD)
-        );
+        assert_eq!(builtin_access("child_process"), BuiltinAccess::CapabilityGated(CAP_CHILD));
         assert_eq!(builtin_access("v8"), BuiltinAccess::Denied);
         assert_eq!(builtin_access("vm"), BuiltinAccess::CapabilityGated(CAP_CHILD));
     }

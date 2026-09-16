@@ -42,7 +42,7 @@ impl RunawayDetector {
         {
             out.push(RunawayKind::MemoryGrowth);
         }
-        if stats.exec_time_ms as u64 > self.slow_handler_ms && budget.max_exec_time_ms == 0 {
+        if stats.exec_time_ms > self.slow_handler_ms && budget.max_exec_time_ms == 0 {
             out.push(RunawayKind::SlowHandler);
         }
         if budget.max_tasks != 0 && stats.tasks_spawned > budget.max_tasks * 4 {

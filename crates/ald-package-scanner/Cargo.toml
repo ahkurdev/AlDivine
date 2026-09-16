@@ -1,0 +1,12 @@
+[package]
+name = "ald-package-scanner"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+ald-core = { path = "../ald-core" }
+ald-package = { path = "../ald-package" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true

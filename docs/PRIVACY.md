@@ -32,3 +32,16 @@ environment for legitimate GTA V owners.
 
 Aegis RBAC gates `players.identity.read`, `players.identity.device.read`,
 `players.identity.network.read`. Raw serials are not present in any admin view.
+
+## Telemetry Consent & Data Minimization
+
+1. **Default-Deny Policy**: Telemetry collection defaults to `Unset` / blocked until the player explicitly opts in.
+2. **Granular Categories**:
+   - `PerformanceMetrics`: Local FPS, tick time, memory usage.
+   - `CrashReporting`: Anonymized stack traces and crash dumps with PII redacted.
+   - `UsageAnalytics`: Feature interactions and launcher launch events.
+   - `NetworkDiagnostics`: Latency percentiles and packet loss rates.
+3. **Immediate Opt-Out**: If consent is set to `OptedOut`, all collection pipelines discard metrics unconditionally.
+4. **Localization & Accessibility**:
+   - Interface localization respects user locale preferences (`en-US`, `id-ID`, etc.) without transmitting language preferences to third parties.
+   - Accessibility settings (high contrast, text scale, colorblind adjustments) remain strictly client-side local settings.

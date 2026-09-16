@@ -11,4 +11,5 @@ ald-network = { path = "../../crates/ald-network" }
 ald-identity = { path = "../../crates/ald-identity" }
 tokio = { workspace = true, features = ["rt-multi-thread", "sync", "time", "macros", "net"] }
 anyhow.workspace = true
+thiserror.workspace = true
 tracing = "0.1"

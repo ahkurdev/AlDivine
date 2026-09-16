@@ -91,14 +91,9 @@ impl Executor {
 }
 
 /// Placeholder budget table; real per-resource budgets live in budget.rs.
+#[derive(Default)]
 pub struct BudgetTable {
     pub default: Budget,
-}
-
-impl Default for BudgetTable {
-    fn default() -> Self {
-        BudgetTable { default: Budget::default() }
-    }
 }
 
 async fn run_task(t: Task) -> Result<(), AldError> {

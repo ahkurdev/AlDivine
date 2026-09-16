@@ -17,6 +17,12 @@ pub struct ReliabilityState {
     mask: u64,
 }
 
+impl Default for ReliabilityState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ReliabilityState {
     pub fn new() -> Self {
         ReliabilityState { highest: 0, seen: false, mask: 0 }

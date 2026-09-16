@@ -267,7 +267,7 @@ mod tests {
         let _ = fs::remove_dir_all(&tmp);
         let game = tmp.join("gta");
         fake_install(&game);
-        let res = detect_gta_installation(&[game.clone()]);
+        let res = detect_gta_installation(std::slice::from_ref(&game));
         assert!(res.candidates.iter().any(|c| c.files_confirmed && c.path == game));
         let _ = fs::remove_dir_all(&tmp);
     }
@@ -280,7 +280,7 @@ mod tests {
         // Only one of the required files.
         fs::write(tmp.join("GTA5.exe"), b"stub").unwrap();
         assert!(!confirm_gta_files(&tmp));
-        let res = detect_gta_installation(&[tmp.clone()]);
+        let res = detect_gta_installation(std::slice::from_ref(&tmp));
         // Our injected candidate must not report a confirmed install.
         assert!(res.candidates.iter().find(|c| c.path == tmp).map(|c| !c.files_confirmed).unwrap_or(true));
         let _ = fs::remove_dir_all(&tmp);
@@ -318,7 +318,7 @@ mod tests {
         let tmp = std::env::temp_dir().join(format!("ald-novagate-status-{}", std::process::id()));
         let _ = fs::remove_dir_all(&tmp);
         fake_install(&tmp);
-        let res = detect_gta_installation(&[tmp.clone()]);
+        let res = detect_gta_installation(std::slice::from_ref(&tmp));
         assert_eq!(res.status, DetectionStatus::InstallationDetected);
         // No entitlement field exists on this type, by construction.
         let _ = fs::remove_dir_all(&tmp);

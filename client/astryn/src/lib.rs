@@ -10,6 +10,8 @@ use std::time::Instant;
 use anyhow::Result;
 use tokio::sync::watch;
 
+pub mod join;
+
 /// Client runtime state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ClientState {

@@ -5,7 +5,6 @@
 //! for the small set of statements Aldivine generates.
 
 use crate::backend::Backend;
-use crate::capability::Capability;
 
 /// How a backend spells a bind parameter.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -23,7 +22,7 @@ impl PlaceholderStyle {
             PlaceholderStyle::Numbered => "$1",
             PlaceholderStyle::Question => "?",
         };
-        std::iter::repeat(one).take(cols).collect::<Vec<_>>().join(", ")
+        std::iter::repeat_n(one, cols).collect::<Vec<_>>().join(", ")
     }
 
     /// Render `n` placeholders, numbered from `start` (Postgres needs global indices
@@ -132,6 +131,7 @@ impl Dialect {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::capability::Capability;
 
     #[test]
     fn placeholder_styles() {

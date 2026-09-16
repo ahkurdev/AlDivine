@@ -118,10 +118,7 @@ impl CfxVec {
 
     pub fn cross(&self, other: &CfxVec) -> Result<CfxVec, CfxLuaError> {
         if self.arity < 3 || other.arity < 3 {
-            return Err(CfxLuaError::VectorArity {
-                expected: 3,
-                got: self.arity.min(other.arity) as usize,
-            });
+            return Err(CfxLuaError::VectorArity { expected: 3, got: self.arity.min(other.arity) as usize });
         }
         Ok(CfxVec::v3(
             self.y * other.z - self.z * other.y,
@@ -207,26 +204,13 @@ fn fmt_f(f: f32) -> String {
 fn install_vectors(lua: &Lua) -> Result<(), CfxLuaError> {
     let globals = lua.globals();
 
-    for (name, arity) in [
-        ("vector2", 2u8),
-        ("vector3", 3),
-        ("vector4", 4),
-        ("quat", 4),
-        ("quaternion", 4),
-    ] {
+    for (name, arity) in [("vector2", 2u8), ("vector3", 3), ("vector4", 4), ("quat", 4), ("quaternion", 4)] {
         let lua2 = lua.clone();
         let ctor = lua
             .create_function(move |_, args: mlua::MultiValue| {
-                let nums: Vec<f32> = args
-                    .into_vec()
-                    .into_iter()
-                    .map(|v| value_to_f32(&v).unwrap_or(0.0))
-                    .collect();
+                let nums: Vec<f32> = args.into_vec().into_iter().map(|v| value_to_f32(&v).unwrap_or(0.0)).collect();
                 let v = match arity {
-                    2 => CfxVec::v2(
-                        *nums.first().unwrap_or(&0.0),
-                        *nums.get(1).unwrap_or(&0.0),
-                    ),
+                    2 => CfxVec::v2(*nums.first().unwrap_or(&0.0), *nums.get(1).unwrap_or(&0.0)),
                     3 => CfxVec::v3(
                         *nums.first().unwrap_or(&0.0),
                         *nums.get(1).unwrap_or(&0.0),
@@ -369,9 +353,7 @@ fn is_valid_ident(s: &str) -> bool {
 }
 
 fn install_joaat(lua: &Lua) -> Result<(), CfxLuaError> {
-    let f = lua.create_function(|_, s: mlua::String| {
-        Ok(joaat(s.to_str()?.as_bytes()))
-    })?;
+    let f = lua.create_function(|_, s: mlua::String| Ok(joaat(s.to_str()?.as_bytes())))?;
     lua.globals().set("joaat", f)?;
     Ok(())
 }
@@ -603,7 +585,7 @@ mod bridge {
                         out.push(i as u8);
                     } else if (-32..=-1).contains(&i) {
                         out.push(i as i8 as u8);
-                    } else if i >= 0 && i <= 0xff {
+                    } else if (0..=0xff).contains(&i) {
                         out.extend_from_slice(&[0xcc, i as u8]);
                     } else if i >= 0 {
                         out.extend_from_slice(&[0xcd, (i >> 8) as u8, i as u8]);
@@ -670,7 +652,9 @@ mod bridge {
             0xca => read_f32(b, i).map(|f| serde_json::json!(f)),
             0xcb => read_f64(b, i).map(|f| serde_json::json!(f)),
             0xcc => {
-                if *i >= b.len() { return Err("truncated".into()); }
+                if *i >= b.len() {
+                    return Err("truncated".into());
+                }
                 Ok(Value::Number((b[*i] as i64).into()))
             }
             0xcd => read_u16(b, i).map(|n| Value::Number((n as i64).into())),
@@ -681,7 +665,9 @@ mod bridge {
             0xd2 => read_i32(b, i).map(|n| serde_json::json!(n)),
             0xd3 => read_i64(b, i).map(|n| serde_json::json!(n)),
             0xd9 => {
-                if *i >= b.len() { return Err("truncated".into()); }
+                if *i >= b.len() {
+                    return Err("truncated".into());
+                }
                 let len = b[*i] as usize;
                 *i += 1;
                 read_str(b, i, len)
@@ -761,57 +747,75 @@ mod bridge {
     }
 
     fn read_u16(b: &[u8], i: &mut usize) -> Result<u16, String> {
-        if *i + 2 > b.len() { return Err("truncated".into()); }
+        if *i + 2 > b.len() {
+            return Err("truncated".into());
+        }
         let v = u16::from_be_bytes([b[*i], b[*i + 1]]);
         *i += 2;
         Ok(v)
     }
     fn read_u32(b: &[u8], i: &mut usize) -> Result<u32, String> {
-        if *i + 4 > b.len() { return Err("truncated".into()); }
+        if *i + 4 > b.len() {
+            return Err("truncated".into());
+        }
         let v = u32::from_be_bytes([b[*i], b[*i + 1], b[*i + 2], b[*i + 3]]);
         *i += 4;
         Ok(v)
     }
     fn read_u64(b: &[u8], i: &mut usize) -> Result<u64, String> {
-        if *i + 8 > b.len() { return Err("truncated".into()); }
+        if *i + 8 > b.len() {
+            return Err("truncated".into());
+        }
         let mut a = [0u8; 8];
         a.copy_from_slice(&b[*i..*i + 8]);
         *i += 8;
         Ok(u64::from_be_bytes(a))
     }
     fn read_i8(b: &[u8], i: &mut usize) -> Result<i8, String> {
-        if *i >= b.len() { return Err("truncated".into()); }
+        if *i >= b.len() {
+            return Err("truncated".into());
+        }
         let v = b[*i] as i8;
         *i += 1;
         Ok(v)
     }
     fn read_i16(b: &[u8], i: &mut usize) -> Result<i16, String> {
-        if *i + 2 > b.len() { return Err("truncated".into()); }
+        if *i + 2 > b.len() {
+            return Err("truncated".into());
+        }
         let v = i16::from_be_bytes([b[*i], b[*i + 1]]);
         *i += 2;
         Ok(v)
     }
     fn read_i32(b: &[u8], i: &mut usize) -> Result<i32, String> {
-        if *i + 4 > b.len() { return Err("truncated".into()); }
+        if *i + 4 > b.len() {
+            return Err("truncated".into());
+        }
         let v = i32::from_be_bytes([b[*i], b[*i + 1], b[*i + 2], b[*i + 3]]);
         *i += 4;
         Ok(v)
     }
     fn read_i64(b: &[u8], i: &mut usize) -> Result<i64, String> {
-        if *i + 8 > b.len() { return Err("truncated".into()); }
+        if *i + 8 > b.len() {
+            return Err("truncated".into());
+        }
         let mut a = [0u8; 8];
         a.copy_from_slice(&b[*i..*i + 8]);
         *i += 8;
         Ok(i64::from_be_bytes(a))
     }
     fn read_f32(b: &[u8], i: &mut usize) -> Result<f64, String> {
-        if *i + 4 > b.len() { return Err("truncated".into()); }
+        if *i + 4 > b.len() {
+            return Err("truncated".into());
+        }
         let v = f32::from_be_bytes([b[*i], b[*i + 1], b[*i + 2], b[*i + 3]]);
         *i += 4;
         Ok(v as f64)
     }
     fn read_f64(b: &[u8], i: &mut usize) -> Result<f64, String> {
-        if *i + 8 > b.len() { return Err("truncated".into()); }
+        if *i + 8 > b.len() {
+            return Err("truncated".into());
+        }
         let mut a = [0u8; 8];
         a.copy_from_slice(&b[*i..*i + 8]);
         *i += 8;
@@ -946,21 +950,18 @@ mod tests {
         let lua = state();
         assert_eq!(lua.load("return msgpack.unpack(msgpack.pack(42))").eval::<i64>().unwrap(), 42);
         assert_eq!(lua.load("return msgpack.unpack(msgpack.pack(\"hello\"))").eval::<String>().unwrap(), "hello");
-        assert_eq!(lua.load("return msgpack.unpack(msgpack.pack(nil))").eval::<mlua::Value>().unwrap(), mlua::Value::Nil);
-        assert_eq!(lua.load("return msgpack.unpack(msgpack.pack(true))").eval::<bool>().unwrap(), true);
+        assert_eq!(
+            lua.load("return msgpack.unpack(msgpack.pack(nil))").eval::<mlua::Value>().unwrap(),
+            mlua::Value::Nil
+        );
+        assert!(lua.load("return msgpack.unpack(msgpack.pack(true))").eval::<bool>().unwrap());
     }
 
     #[test]
     fn msgpack_struct_roundtrip() {
         let lua = state();
-        assert_eq!(
-            lua.load("return msgpack.unpack(msgpack.pack({k = 7})).k").eval::<i64>().unwrap(),
-            7
-        );
-        assert_eq!(
-            lua.load("return msgpack.unpack(msgpack.pack({1, 2, 3}))[2]").eval::<i64>().unwrap(),
-            2
-        );
+        assert_eq!(lua.load("return msgpack.unpack(msgpack.pack({k = 7})).k").eval::<i64>().unwrap(), 7);
+        assert_eq!(lua.load("return msgpack.unpack(msgpack.pack({1, 2, 3}))[2]").eval::<i64>().unwrap(), 2);
     }
 
     #[test]
@@ -989,19 +990,15 @@ mod tests {
     #[test]
     fn promise_resolves_synchronously() {
         let lua = state();
-        let r: i64 = lua
-            .load("local p = promise.new(function(r, j) r(99) end); return Citizen.Await(p)")
-            .eval()
-            .unwrap();
+        let r: i64 =
+            lua.load("local p = promise.new(function(r, j) r(99) end); return Citizen.Await(p)").eval().unwrap();
         assert_eq!(r, 99);
     }
 
     #[test]
     fn promise_reject_propagates_as_error() {
         let lua = state();
-        let r = lua
-            .load("local p = promise.new(function(r, j) j('boom') end); return Citizen.Await(p)")
-            .eval::<i64>();
+        let r = lua.load("local p = promise.new(function(r, j) j('boom') end); return Citizen.Await(p)").eval::<i64>();
         assert!(r.is_err());
     }
 

@@ -171,7 +171,11 @@ pub fn interpolation_delay_ms(rtt_ms: i64, jitter_ms: i64) -> i64 {
 /// Bound a client-supplied timestamp against the server clock.
 /// Returns Err if the claim is outside [now - MAX_LAG, now + MAX_LEAD],
 /// i.e. replayable/forged history is rejected rather than trusted.
-pub fn validate_client_time_claim(server_now: i64, client_claim: i64, allowed_lag_ms: i64) -> Result<(), TimeSyncError> {
+pub fn validate_client_time_claim(
+    server_now: i64,
+    client_claim: i64,
+    allowed_lag_ms: i64,
+) -> Result<(), TimeSyncError> {
     let lag = server_now - client_claim;
     if lag > allowed_lag_ms {
         return Err(TimeSyncError::StaleClaim { lag_ms: lag, allowed_lag_ms });

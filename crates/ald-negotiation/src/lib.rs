@@ -104,18 +104,9 @@ pub enum ProtocolNegotiation {
     /// Wire version both sides agreed on.
     Agreed { version: u16 },
     /// Client older than the server's minimum.
-    ClientTooOld {
-        client_version: u16,
-        server_min: u16,
-        server_max: u16,
-        action: UpgradeAction,
-    },
+    ClientTooOld { client_version: u16, server_min: u16, server_max: u16, action: UpgradeAction },
     /// Client newer than anything the server speaks.
-    ServerTooOld {
-        client_version: u16,
-        server_max: u16,
-        action: UpgradeAction,
-    },
+    ServerTooOld { client_version: u16, server_max: u16, action: UpgradeAction },
     /// Protocol family mismatch (e.g. wrong magic/channel layout).
     Incompatible { reason: String, action: UpgradeAction },
 }
@@ -257,12 +248,8 @@ pub fn negotiate(policy: &NegotiationPolicy, client: &Hello) -> Result<Negotiate
         .map(|c| c.as_str())
         .chain(policy.server_features.iter().map(|f| f.name.as_str()))
         .collect();
-    let mut shared: Vec<String> = client
-        .capabilities
-        .iter()
-        .filter(|c| server_cap_names.contains(c.as_str()))
-        .cloned()
-        .collect();
+    let mut shared: Vec<String> =
+        client.capabilities.iter().filter(|c| server_cap_names.contains(c.as_str())).cloned().collect();
     shared.sort_unstable();
     shared.dedup();
 
@@ -276,7 +263,11 @@ pub fn negotiate(policy: &NegotiationPolicy, client: &Hello) -> Result<Negotiate
             shared.len()
         )
     } else {
-        format!("negotiation failed: {} problems; first: {}", problems.len(), problems.first().cloned().unwrap_or_default())
+        format!(
+            "negotiation failed: {} problems; first: {}",
+            problems.len(),
+            problems.first().cloned().unwrap_or_default()
+        )
     };
 
     Ok(NegotiatedSet { protocol, features, shared_capabilities: shared, allowed, summary })
@@ -356,10 +347,7 @@ mod tests {
         let set = negotiate(&policy(), &client_hello()).unwrap();
         assert!(set.allowed);
         assert!(matches!(set.protocol, ProtocolNegotiation::Agreed { version: 1 }));
-        assert!(matches!(
-            set.features.get("ald:statebags@2"),
-            Some(FeatureOutcome::Selected(_))
-        ));
+        assert!(matches!(set.features.get("ald:statebags@2"), Some(FeatureOutcome::Selected(_))));
         assert!(set.shared_capabilities.contains(&"voice-opus".to_string()));
     }
 
@@ -368,10 +356,7 @@ mod tests {
         let mut c = client_hello();
         c.features.push(FeatureId::new("acme", "teleport", 1));
         let set = negotiate(&policy(), &c).unwrap();
-        assert!(matches!(
-            set.features.get("acme:teleport@1"),
-            Some(FeatureOutcome::ClientOnlyUnsupported(_))
-        ));
+        assert!(matches!(set.features.get("acme:teleport@1"), Some(FeatureOutcome::ClientOnlyUnsupported(_))));
     }
 
     #[test]
@@ -379,19 +364,13 @@ mod tests {
         let mut p = policy();
         p.disabled.push("ald:voice".to_string());
         let set = negotiate(&p, &client_hello()).unwrap();
-        assert!(matches!(
-            set.features.get("ald:voice@1"),
-            Some(FeatureOutcome::DisabledByPolicy(_))
-        ));
+        assert!(matches!(set.features.get("ald:voice@1"), Some(FeatureOutcome::DisabledByPolicy(_))));
     }
 
     #[test]
     fn server_feature_client_lacks_is_client_update() {
         let set = negotiate(&policy(), &client_hello()).unwrap();
-        assert!(matches!(
-            set.features.get("ald:dui@1"),
-            Some(FeatureOutcome::RequiresClientUpdate(_))
-        ));
+        assert!(matches!(set.features.get("ald:dui@1"), Some(FeatureOutcome::RequiresClientUpdate(_))));
     }
 
     #[test]
@@ -400,10 +379,7 @@ mod tests {
         c.features.push(FeatureId::new("ald", "statebags", 9));
         let set = negotiate(&policy(), &c).unwrap();
         assert!(!set.allowed);
-        assert!(matches!(
-            set.features.get("ald:statebags@9"),
-            Some(FeatureOutcome::RequiresServerUpdate(_))
-        ));
+        assert!(matches!(set.features.get("ald:statebags@9"), Some(FeatureOutcome::RequiresServerUpdate(_))));
     }
 
     #[test]

@@ -47,11 +47,7 @@ pub fn parse_document(source: &str, text: &str, opts: &ParseOptions) -> CfgResul
     // `"a\n".split('\n')` yields ["a", ""]: the trailing empty segment is the
     // position after the final newline, not an extra line, so it is dropped.
     // Interior empty segments (e.g. "a\n\nb") are real blank lines and stay.
-    let last = if segs.len() > 1 && segs.last() == Some(&"") {
-        segs.len() - 1
-    } else {
-        segs.len()
-    };
+    let last = if segs.len() > 1 && segs.last() == Some(&"") { segs.len() - 1 } else { segs.len() };
     for (idx, raw) in segs[..last].iter().enumerate() {
         let line_no = (idx as u32) + 1;
         doc.push(parse_line(line_no, raw, opts)?);
@@ -187,10 +183,7 @@ impl<'a> Tokenizer<'a> {
                 }
                 b'\\' => {
                     self.pos += 1;
-                    let esc = self.s.get(self.pos).ok_or(CfgError::UnterminatedString {
-                        line: self.line,
-                        col,
-                    })?;
+                    let esc = self.s.get(self.pos).ok_or(CfgError::UnterminatedString { line: self.line, col })?;
                     // Recognized escapes decode; anything else passes through verbatim
                     // (FiveM-style leniency: `\c` yields `c`).
                     let ch = match esc {
@@ -229,9 +222,7 @@ fn expand_env(s: &str, opts: &ParseOptions, line: u32) -> CfgResult<String> {
                     Ok(v) => out.push_str(&v),
                     // An unset var silently becoming an empty string would hide typos in
                     // secret references (`set_secret db_url env:TYPO`) — fail loudly instead.
-                    Err(_) => {
-                        return Err(CfgError::UnknownEnvVar { line, name: name.to_string() })
-                    }
+                    Err(_) => return Err(CfgError::UnknownEnvVar { line, name: name.to_string() }),
                 }
                 i = i + 2 + end + 1;
                 continue;

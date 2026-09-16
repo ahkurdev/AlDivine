@@ -176,11 +176,8 @@ impl Alerts {
     {
         let keys: Vec<(String, AlertKind)> = self.open.keys().cloned().collect();
         for (subject, kind) in keys {
-            match still_true(&subject, kind) {
-                Some(false) => {
-                    self.resolve(&subject, kind, now);
-                }
-                Some(true) | None => {}
+            if let Some(false) = still_true(&subject, kind) {
+                self.resolve(&subject, kind, now);
             }
         }
     }
@@ -336,7 +333,7 @@ mod tests {
         let mut a = Alerts::new();
         a.fire("s", AlertKind::HighCpu, "x", 1);
         a.fire("s", AlertKind::HighMemory, "x", 1);
-        a.reconcile(100, |subject, kind| {
+        a.reconcile(100, |_subject, kind| {
             if kind == AlertKind::HighCpu {
                 Some(false) // cleared
             } else if kind == AlertKind::HighMemory {

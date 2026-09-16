@@ -1,0 +1,10 @@
+[package]
+name = "ald-script-dotnet"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+ald-fxmanifest = { path = "../ald-fxmanifest" }
+thiserror = { workspace = true }
+sha1 = { workspace = true }

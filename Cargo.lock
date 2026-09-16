@@ -312,6 +312,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ald-script-dotnet"
+version = "0.1.0"
+dependencies = [
+ "ald-fxmanifest",
+ "sha1",
+ "thiserror",
+]
+
+[[package]]
 name = "ald-script-js"
 version = "0.1.0"
 dependencies = [

@@ -150,3 +150,44 @@ Docs:
 - docs/NODE_COMPATIBILITY.md — Status PARTIAL; evaluation BLOCKED_EXTERNAL.
 - docs/compatibility/NODE_MATRIX.md — exact-version certification matrix;
   no row is PASS yet (requires engine version + Aldivine version + evidence).
+
+## 2026-09-16 — PHASE 13: ald-script-dotnet (CfxCLR / .NET load-and-authorize half)
+
+Scope decision (honesty first): no CLR is embedded in this build
+(no Mono, CoreCLR, or .NET Framework host; `dotnet` absent offline), so the
+crate implements ONLY the engine-independent half and explicitly does not
+claim CIL execution, Tick dispatch, or event binding.
+
+Implemented:
+- Dependency-free ECMA-335 metadata reader: PE → CLI header → metadata
+  streams → tables, recovering runtime version, CLI flags, module name,
+  MVID, assembly identity, AssemblyRefs, TypeDefs with base types,
+  P/Invoke imports, custom-attribute type names. Verified against genuine
+  on-disk framework assemblies (`mscorlib.dll`, `System.Core.dll`), never
+  synthetic bytes pretending to be ones.
+- BCL target inference (System.Private.CoreLib/System.Runtime → CoreClr,
+  mscorlib → NetFramework, Mono markers → Mono) with host-flavor refusal
+  instead of pretend-load.
+- CLR host profiles `Mono` (FiveM-era) / `CoreClr` (new deployments),
+  selected from normalized manifest `clr_disable_task_scheduler`.
+- Transitive dependency resolution: name match, downgrade refused, upgrade
+  recorded (never hidden), explicit public-key-token trust list, topological
+  load plan, cycle reported with members.
+- Ordered resource authorization: BCL mismatch → CitizenFX.Core reference →
+  BaseScript subclass → signature policy → native-call policy.
+- Virtual-clock `TickPump` (30 ms boundaries) pinning tick ordering semantics
+  so future engine integration is wiring, not design.
+
+Root causes fixed this phase:
+1. Shared test fixture built only the tail gates' needs (no BCL reference),
+   so target inference returned Unknown and every test failed at the BCL
+   gate. Fixture now carries the BCL reference the first gate requires.
+2. Clippy derivable-impl + single-pattern-match lints in new code fixed by
+   hand (no `cargo clippy --fix`, which would strip cfg(test) imports).
+
+Tests: 20/20 green. Workspace regression: 597 passed / 0 failed / 86 binaries.
+
+Docs:
+- docs/DOTNET_COMPATIBILITY.md — Status PARTIAL; CIL execution BLOCKED_EXTERNAL.
+- docs/compatibility/DOTNET_MATRIX.md — exact-version certification matrix;
+  no row is PASS yet (requires CLR version + Aldivine version + evidence).

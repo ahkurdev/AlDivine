@@ -20,7 +20,7 @@ BLOCKED_EXTERNAL, NOT_SUPPORTED, PLANNED.
 | 10 | Native Lua runtime, CfxLua compatibility | PARTIAL (ald-script-lua Lua 5.4 sandbox; CfxLua frontend PLANNED) |
 | 11 | Client JavaScript runtime | IMPLEMENTED (ald-script-js, rquickjs) |
 | 12 | Node 16 / Node 22 compatibility runtime, package.json, dependency install | PARTIAL (ald-script-node: profiles, manifest node_version selection, package.json parse, engines-node semver enforcement, Node resolution over NodeFileSource with node_modules walk + scoped/subpath, deterministic lock planning, npm integrity sha512/sha256 verify + content-address cache path, install-script-off / native-addon-blocked policy, 30-builtin capability table; JS evaluation BLOCKED_EXTERNAL — no engine vendored, see docs/NODE_COMPATIBILITY.md + docs/compatibility/NODE_MATRIX.md) |
-| 13 | CfxCLR / .NET compatibility | PLANNED (ald-script-dotnet) |
+| 13 | CfxCLR / .NET compatibility | PARTIAL (ald-script-dotnet: ECMA-335 reader over real assemblies, BCL inference, Mono/CoreClr profiles, load plans, ordered authorization, TickPump; CIL execution BLOCKED_EXTERNAL — no CLR embedded, see docs/DOTNET_COMPATIBILITY.md + docs/compatibility/DOTNET_MATRIX.md) |
 | 14 | Native extension ABI | PLANNED (ald-native-extension) |
 | 15 | Aldivine server runtime, server console/TUI | IMPLEMENTED (server/ald-server: startup, AstraNet listener, LifecycleSupervisor, console, graceful shutdown) |
 | 16 | Connection admission, deferrals, queue, reserved slots | PLANNED (ald-queue, ald-deferrals) |
@@ -102,9 +102,15 @@ already present in the workspace.
 PHASE 11 complete: ald-script-js Citizen-compatible client runtime, 16/16
 tests green, workspace regression clean (see DEVLOG).
 
+## Next action — DONE (PHASE 12/13)
+
+PHASE 12 complete: ald-script-node engine-independent half, 33/33 tests,
+workspace regression 577/0 (see DEVLOG).
+PHASE 13 complete: ald-script-dotnet load-and-authorize half, 20/20 tests,
+workspace regression 597/0 (see DEVLOG).
+
 ## Next action
 
-PHASE 12 — Node 16 / Node 22 compatibility runtime (ald-script-node):
-package.json, node_modules resolution, require(), timers, setImmediate,
-setTick/clearTick, on/onNet/emit/emitNet, selected Node built-ins behind
-sandbox/capability gates. QuickJS is NOT Node.js; do not pretend otherwise.
+PHASE 14 — Native extension ABI (ald-native-extension): extension manifest,
+ABI version negotiation, Ed25519 signature gate, default-deny load policy,
+capability declaration. Rust-first; C ABI boundary documented.

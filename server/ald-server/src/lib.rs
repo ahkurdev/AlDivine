@@ -79,6 +79,25 @@ impl Server {
             net_state.network_loop(&listener).await;
         });
 
+        // Auto-discover and queue resource startup
+        let search_dirs =
+            [std::path::PathBuf::from(&state.config().resources.directory), std::path::PathBuf::from("base-resources")];
+        for dir in &search_dirs {
+            if dir.is_dir() {
+                if let Ok(entries) = std::fs::read_dir(dir) {
+                    for entry in entries.flatten() {
+                        let path = entry.path();
+                        if path.is_dir() && path.join("ald_manifest.toml").exists() {
+                            if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                                tracing::info!(resource = %name, "queueing resource startup");
+                                let _ = lifecycle_tx.send(LifecycleCommand::Start(name.to_string()));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         tracing::info!(elapsed_ms = started.elapsed().as_millis() as u64, "server ready");
         Ok(Server { state, shutdown_tx, lifecycle_tx })
     }

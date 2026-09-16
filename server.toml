@@ -1,0 +1,27 @@
+# Project Aldivine Server Configuration
+
+[server]
+name = "Aldivine Community Server"
+max_players = 64
+description = "Official Aldivine GTA V Multiplayer Server"
+game_build = 3095
+
+[network]
+bind = "0.0.0.0:30120"
+protocol_version = 1
+
+[security]
+max_connections_per_ip = 8
+enable_astranet_firewall = true
+
+[identity]
+require_aldivine_account = false
+require_gta_entitlement = true
+
+[resources]
+directory = "base-resources"
+enabled = ["spawn", "chat", "session", "loading", "commands", "help", "devtools"]
+
+[runtime]
+worker_threads = 4
+max_resources = 256

@@ -19,7 +19,7 @@ BLOCKED_EXTERNAL, NOT_SUPPORTED, PLANNED.
 | 9 | NormalizedManifest, fxmanifest.lua, __resource.lua, all documented directives | PLANNED (ald-fxmanifest) |
 | 10 | Native Lua runtime, CfxLua compatibility | PARTIAL (ald-script-lua Lua 5.4 sandbox; CfxLua frontend PLANNED) |
 | 11 | Client JavaScript runtime | IMPLEMENTED (ald-script-js, rquickjs) |
-| 12 | Node 16 / Node 22 compatibility runtime, package.json, dependency install | PLANNED (ald-script-node) |
+| 12 | Node 16 / Node 22 compatibility runtime, package.json, dependency install | PARTIAL (ald-script-node: profiles, manifest node_version selection, package.json parse, engines-node semver enforcement, Node resolution over NodeFileSource with node_modules walk + scoped/subpath, deterministic lock planning, npm integrity sha512/sha256 verify + content-address cache path, install-script-off / native-addon-blocked policy, 30-builtin capability table; JS evaluation BLOCKED_EXTERNAL — no engine vendored, see docs/NODE_COMPATIBILITY.md + docs/compatibility/NODE_MATRIX.md) |
 | 13 | CfxCLR / .NET compatibility | PLANNED (ald-script-dotnet) |
 | 14 | Native extension ABI | PLANNED (ald-native-extension) |
 | 15 | Aldivine server runtime, server console/TUI | IMPLEMENTED (server/ald-server: startup, AstraNet listener, LifecycleSupervisor, console, graceful shutdown) |

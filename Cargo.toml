@@ -21,7 +21,8 @@ members = [
   "crates/ald-compat",
   "crates/ald-audit",
   "crates/ald-script-lua",
-  "crates/ald-script-js",
+    "crates/ald-script-js",
+    "crates/ald-script-node",
   "crates/ald-replication",
   "crates/ald-serialization-compat",
   "crates/ald-compat",
@@ -61,6 +62,7 @@ tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "macros"
 ulid = { version = "1", features = ["serde"] }
 hmac = "0.12"
 sha1 = "0.10"
+semver = { version = "1", features = ["serde"] }
 sha2 = "0.10"
 base64 = "0.22"
 rand = "0.8"

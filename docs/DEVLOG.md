@@ -124,3 +124,29 @@
      order is state/ctx/runtime so roots and heap die before the runtime.
 - require/process/Buffer deliberately absent (ReferenceError on touch).
 - 16/16 tests green; no teardown abort.
+
+## 2026-09-16 — PHASE 12: ald-script-node (Node 16/22 compatibility runtime, engine-independent half)
+
+Scope decision (honesty first): no Node.js engine exists in this offline
+environment, so the crate implements ONLY the engine-independent half and
+explicitly does not claim `require`/`process`/`Buffer` evaluation.
+
+Implemented:
+- Node compatibility profiles: node16 (legacy) / node22 (modern), selected
+  from the normalized manifest `node_version` directive.
+- `engines.node` semver enforcement against the selected profile.
+- package.json parsing (name, version, main, dependencies, scripts, engines).
+- Node module resolution mirroring Node's algorithm shape: relative/absolute,
+  directory index, package.json `main`, node_modules walk, extension probing.
+- Native addon detection (`.node` reached through `main`) flagged for policy.
+- Lockfile / integrity (sha512 base64 via sha2+base64), deterministic resolve.
+- Install-script policy gate: DISABLED BY DEFAULT, explicit permission required.
+- Virtual-clock timers (setTimeout/setInterval/setImmediate/setTick/clearTick)
+  and the citizen event surface (on/onNet/emit/emitNet/addRawEventListener).
+
+Tests: 33/33 green. Workspace regression: 577 passed / 0 failed / 84 binaries.
+
+Docs:
+- docs/NODE_COMPATIBILITY.md — Status PARTIAL; evaluation BLOCKED_EXTERNAL.
+- docs/compatibility/NODE_MATRIX.md — exact-version certification matrix;
+  no row is PASS yet (requires engine version + Aldivine version + evidence).

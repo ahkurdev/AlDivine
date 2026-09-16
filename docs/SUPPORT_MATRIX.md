@@ -22,8 +22,10 @@ If a single gate fails or is marked skipped / external blocker, Aldivine does NO
 |---|---|---|---|
 | **Host Build** | Windows 11 x86_64 | **PASS** | Toolchain pinned to 1.98.1 in `rust-toolchain.toml` |
 | **Native Dependency Audit** | `ald-server` | **PASS** | 0 unexpected C/C++ dependencies in core closure |
-| **Vertical Join (non-GTA)** | Astryn -> Server loopback | **INTEGRATION PASS** | `vertical_e2e`: Hello/Auth/Identity/Deferral/Queue/Manifest/Ready, client Running, framework online >= 1 |
-| **Aegis HTTP API** | 127.0.0.1:40120 | **INTEGRATION PASS** | health/status/resources + real lifecycle actions; React UI PLANNED |
+| **Vertical Join (non-GTA)** | Astryn -> Server loopback | **INTEGRATION PASS** | `vertical_e2e`: Hello/Auth/Identity/Deferral/Queue/Manifest/Ready, client Running, framework online >= 1, welcome event delivered, chunked download verified |
+| **Aegis HTTP API** | 127.0.0.1:40120 | **INTEGRATION PASS** | health/status/resources + real lifecycle actions + first-run setup/status + setup/complete provisioning |
+| **Aegis React UI** | aegis/web dist | **INTEGRATION PASS** | `npm run build` green (tsc + vite): setup wizard + live dashboard driving the real API |
+| **Chunk Download Transport** | ResourceTransfer loopback | **INTEGRATION PASS** | 32 KiB chunks, resume ranges, SHA-256 verify, cache commit; CDN mirrors PLANNED |
 | **GTA Legacy Support** | Build 2699 | **SYNTHETIC PASS** | Build definition registered; real Game Bridge BLOCKED_EXTERNAL |
 | **GTA Enhanced Support** | Build 3095 | **SYNTHETIC PASS** | Build definition registered; real Game Bridge BLOCKED_EXTERNAL |
 | **CfxLua Profile** | Lua 5.4 Compat | **PASS** | Vector math, joaat, JSON, msgpack, promise/await verified |

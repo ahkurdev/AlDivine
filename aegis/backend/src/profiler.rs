@@ -170,14 +170,14 @@ impl Profiler {
     /// All resources sorted by total CPU time, worst first.
     pub fn by_cpu(&self) -> Vec<(&String, u64)> {
         let mut all: Vec<(&String, u64)> = self.profiles.iter().map(|(name, p)| (name, p.total_cpu_ms())).collect();
-        all.sort_by(|a, b| b.1.cmp(&a.1));
+        all.sort_by_key(|a| std::cmp::Reverse(a.1));
         all
     }
 
     /// The slowest handlers by P95.
     pub fn slowest_by_p95(&self) -> Vec<(&String, ExecutionStats)> {
         let mut all: Vec<(&String, ExecutionStats)> = self.profiles.iter().map(|(name, p)| (name, p.stats())).collect();
-        all.sort_by(|a, b| b.1.p95_us.cmp(&a.1.p95_us));
+        all.sort_by_key(|a| std::cmp::Reverse(a.1.p95_us));
         all
     }
 

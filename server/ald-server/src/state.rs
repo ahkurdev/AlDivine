@@ -25,6 +25,7 @@ pub struct ServerState {
     metrics: Arc<MetricStore>,
     admission: Arc<tokio::sync::Mutex<AdmissionManager>>,
     framework_players: Arc<tokio::sync::Mutex<aldivine_framework::PlayerService>>,
+    peer_limits: std::sync::Mutex<std::collections::HashMap<std::net::SocketAddr, ald_network::RateLimiter>>,
     shutdown_tx: watch::Sender<bool>,
     shutdown_rx: watch::Receiver<bool>,
     console_tx: tokio::sync::mpsc::UnboundedSender<ConsoleCommand>,
@@ -55,6 +56,7 @@ impl ServerState {
             metrics: Arc::new(MetricStore::new()),
             admission: Arc::new(tokio::sync::Mutex::new(admission)),
             framework_players: Arc::new(tokio::sync::Mutex::new(aldivine_framework::PlayerService::new())),
+            peer_limits: std::sync::Mutex::new(std::collections::HashMap::new()),
             shutdown_tx,
             shutdown_rx,
             console_tx,
@@ -97,7 +99,77 @@ impl ServerState {
         &self.framework_players
     }
 
-    /// Number of resources currently in the Running state.
+    /// Ingress gate: token-bucket rate limit, client channel allowlist, and
+    /// admission state. Unknown peers may only knock on Auth; rejected peers
+    /// are dropped; Admin/VoiceMetadata have no server handler yet.
+    pub async fn admit_packet(&self, peer: &std::net::SocketAddr, channel: ald_protocol::Channel) -> bool {
+        let limited = {
+            let mut guards = match self.peer_limits.lock() {
+                Ok(g) => g,
+                Err(_) => return false,
+            };
+            let limiter = guards.entry(*peer).or_insert_with(|| ald_network::RateLimiter::new(300, 150.0));
+            !limiter.try_consume()
+        };
+        if limited {
+            self.metrics.incr("network.rate_limited", 1);
+            return false;
+        }
+        if !ald_network::EventFirewall::channel_allowed_client(channel) {
+            self.metrics.incr("network.channel_denied", 1);
+            return false;
+        }
+        let state = { self.admission.lock().await.state_of(peer) };
+        match state {
+            None => channel == ald_protocol::Channel::Auth,
+            Some(s) if s.is_terminal() && s != ald_protocol::HandshakeState::Ready => {
+                self.metrics.incr("network.session_denied", 1);
+                false
+            }
+            Some(_) => true,
+        }
+    }
+
+    /// Welcome event on the EventReliable channel right after ServerReady.
+    async fn send_welcome(&self, listener: &ald_network::UdpTransport, peer: &std::net::SocketAddr) {
+        use ald_protocol::{encode_event, Channel, EventEnvelope};
+        let data = serde_json::json!({
+            "motd": format!("Welcome to {}", self.config.server.name),
+            "server": self.config.server.name,
+            "max_players": self.config.server.max_players,
+        });
+        let sid = { self.admission.lock().await.session_id_of(peer) };
+        match EventEnvelope::with_json("core", "ald:server:welcome", data)
+            .map_err(|e| e.to_string())
+            .and_then(|env| encode_event(&env).map_err(|e| e.to_string()))
+        {
+            Ok(payload) => {
+                let out = ald_protocol::Packet {
+                    header: ald_protocol::PacketHeader {
+                        protocol_version: ald_protocol::PROTOCOL_VERSION,
+                        session_id: sid,
+                        channel: Channel::EventReliable,
+                        sequence: 0,
+                        tick: 0,
+                        timestamp_ms: now_ms(),
+                        flags: 0,
+                        payload_len: payload.len() as u32,
+                    },
+                    payload,
+                };
+                if let Err(e) = listener.send(&out, *peer).await {
+                    self.metrics.incr("network.errors", 1);
+                    tracing::warn!(%peer, error = %e, "welcome send failed");
+                }
+            }
+            Err(e) => {
+                self.metrics.incr("network.errors", 1);
+                tracing::warn!(%peer, error = %e, "welcome encode failed");
+            }
+        }
+    }
+
+    /// Number of resources currently serving (Healthy or Degraded).
     pub async fn running_count(&self) -> usize {
         let l = self.lifecycle.lock().await;
         l.running_count()
@@ -133,6 +205,9 @@ impl ServerState {
                         Ok((packet, peer)) => {
                             self.metrics.incr("network.packets", 1);
                             self.metrics.incr("network.bytes", packet.payload.len() as u64);
+                            if !self.admit_packet(&peer, packet.header.channel).await {
+                                continue;
+                            }
                             match packet.header.channel {
                                 Channel::Auth => {
                                     match HandshakeMessage::decode(&packet.payload) {
@@ -143,7 +218,7 @@ impl ServerState {
                                                 let mut adm = self.admission.lock().await;
                                                 adm.handle(peer, msg, &remote, t)
                                             };
-                                            for r in responses {
+                                            for r in &responses {
                                                 if matches!(&r, HandshakeMessage::ServerReady { world_join: true }) {
                                                     let id_opt = {
                                                         let adm = self.admission.lock().await;
@@ -187,6 +262,11 @@ impl ServerState {
                                                     }
                                                 }
                                             }
+                                            if responses.iter().any(|r| {
+                                                matches!(r, HandshakeMessage::ServerReady { world_join: true })
+                                            }) {
+                                                self.send_welcome(listener, &peer).await;
+                                            }
                                         }
                                         Err(e) => {
                                             self.metrics.incr("network.errors", 1);
@@ -197,11 +277,47 @@ impl ServerState {
                                 Channel::Heartbeat => {
                                     self.metrics.incr("network.heartbeat", 1);
                                 }
+                                Channel::ResourceTransfer => {
+                                    let ready = {
+                                        self.admission.lock().await.state_of(&peer)
+                                            == Some(ald_protocol::HandshakeState::Ready)
+                                    };
+                                    let dir = self.config().resources.directory.clone();
+                                    match crate::transfer::serve_chunk(ready, &packet.payload, &dir) {
+                                        Ok(body) => {
+                                            let sid = {
+                                                self.admission.lock().await.session_id_of(&peer)
+                                            };
+                                            let out = Packet {
+                                                header: PacketHeader {
+                                                    protocol_version: PROTOCOL_VERSION,
+                                                    session_id: sid,
+                                                    channel: Channel::ResourceTransfer,
+                                                    sequence: 0,
+                                                    tick: 0,
+                                                    timestamp_ms: now_ms(),
+                                                    flags: 0,
+                                                    payload_len: body.len() as u32,
+                                                },
+                                                payload: body,
+                                            };
+                                            if let Err(e) = listener.send(&out, peer).await {
+                                                self.metrics.incr("network.errors", 1);
+                                                tracing::warn!(%peer, error = %e, "chunk send failed");
+                                            } else {
+                                                self.metrics.incr("network.chunks", 1);
+                                            }
+                                        }
+                                        Err(e) => {
+                                            self.metrics.incr("network.errors", 1);
+                                            tracing::warn!(%peer, error = %e, "chunk refused");
+                                        }
+                                    }
+                                }
                                 Channel::Control
                                 | Channel::EventReliable
                                 | Channel::EventUnreliable
                                 | Channel::EntityState
-                                | Channel::ResourceTransfer
                                 | Channel::Admin
                                 | Channel::VoiceMetadata => {
                                     self.metrics.incr("network.channel_pkts", 1);
@@ -218,5 +334,47 @@ impl ServerState {
                 _ = rx.changed() => break,
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ald_protocol::Channel;
+
+    fn test_state() -> ServerState {
+        let (tx, _rx) = tokio::sync::watch::channel(false);
+        ServerState::new(Config::default(), tx)
+    }
+
+    fn peer(n: u16) -> std::net::SocketAddr {
+        format!("127.0.0.1:{n}").parse().unwrap()
+    }
+
+    #[tokio::test]
+    async fn unknown_peer_only_auth() {
+        let s = test_state();
+        assert!(s.admit_packet(&peer(41001), Channel::Auth).await);
+        assert!(!s.admit_packet(&peer(41001), Channel::Heartbeat).await);
+    }
+
+    #[tokio::test]
+    async fn admin_channel_denied() {
+        let s = test_state();
+        assert!(!s.admit_packet(&peer(41002), Channel::Admin).await);
+        assert!(!s.admit_packet(&peer(41002), Channel::VoiceMetadata).await);
+    }
+
+    #[tokio::test]
+    async fn rate_limit_trips() {
+        let s = test_state();
+        let p = peer(41003);
+        let mut allowed = 0;
+        for _ in 0..400 {
+            if s.admit_packet(&p, Channel::Auth).await {
+                allowed += 1;
+            }
+        }
+        assert!(allowed <= 300, "bucket must cap bursts, allowed {allowed}");
     }
 }

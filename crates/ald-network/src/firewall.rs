@@ -75,10 +75,17 @@ impl EventFirewall {
     }
 
     /// Channel allowlist: only these channels accept client-originated traffic.
+    /// ResourceTransfer carries client chunk requests; Admin/VoiceMetadata
+    /// have no client handler and stay server-only.
     pub fn channel_allowed_client(channel: Channel) -> bool {
         matches!(
             channel,
-            Channel::Control | Channel::Auth | Channel::EventReliable | Channel::EventUnreliable | Channel::Heartbeat
+            Channel::Control
+                | Channel::Auth
+                | Channel::EventReliable
+                | Channel::EventUnreliable
+                | Channel::Heartbeat
+                | Channel::ResourceTransfer
         )
     }
 }

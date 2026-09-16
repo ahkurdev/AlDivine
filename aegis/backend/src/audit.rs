@@ -84,6 +84,10 @@ impl AuditLog {
         self.entries.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+
     pub fn entries(&self) -> impl Iterator<Item = &AuditEntry> {
         self.entries.iter().rev()
     }

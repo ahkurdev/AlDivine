@@ -10,6 +10,8 @@ ald-config = { path = "../../crates/ald-config" }
 ald-network = { path = "../../crates/ald-network" }
 ald-identity = { path = "../../crates/ald-identity" }
 ald-protocol = { path = "../../crates/ald-protocol" }
+ald-cache = { path = "../../crates/ald-cache" }
+ald-download = { path = "../../crates/ald-download" }
 tokio = { workspace = true, features = ["rt-multi-thread", "sync", "time", "macros", "net"] }
 anyhow.workspace = true
 thiserror.workspace = true

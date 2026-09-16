@@ -42,3 +42,19 @@ jobs:
           toolchain: "1.98.1"
       - run: cargo test -p ald-server --features lua --test vertical_e2e
       - run: cargo test -p ald-server --features lua --lib
+
+  web:
+    name: aegis web build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: aegis/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: aegis/web/package-lock.json
+      - run: npm ci
+      - run: npm run build

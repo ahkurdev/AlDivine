@@ -463,12 +463,13 @@ mod tests {
     use std::net::Ipv4Addr;
 
     fn cfg() -> Arc<EdgeConfig> {
-        let mut c = EdgeConfig::default();
-        c.origin = "127.0.0.1:30120".parse().unwrap();
-        c.per_ip_connection_limit = 2;
-        c.origin_connection_limit = 3;
-        c.forward_secret = "test-secret".into();
-        Arc::new(c)
+        Arc::new(EdgeConfig {
+            origin: "127.0.0.1:30120".parse().unwrap(),
+            per_ip_connection_limit: 2,
+            origin_connection_limit: 3,
+            forward_secret: "test-secret".into(),
+            ..Default::default()
+        })
     }
 
     fn ip(n: u8) -> IpAddr {

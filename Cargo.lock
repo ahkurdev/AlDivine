@@ -588,6 +588,7 @@ dependencies = [
 name = "ald-server"
 version = "0.1.0"
 dependencies = [
+ "ald-cache",
  "ald-config",
  "ald-core",
  "ald-deferrals",
@@ -780,8 +781,10 @@ dependencies = [
 name = "astryn-core"
 version = "0.1.0"
 dependencies = [
+ "ald-cache",
  "ald-config",
  "ald-core",
+ "ald-download",
  "ald-identity",
  "ald-network",
  "ald-protocol",

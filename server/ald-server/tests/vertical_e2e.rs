@@ -33,9 +33,26 @@ async fn vertical_join_reaches_running_and_registers_framework_player() {
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
     }
     assert!(running, "client must reach Running, got {:?}", client.state());
+    assert!(client.has_session().await, "client must retain its session socket");
+
+    let ev = client.last_event().expect("server welcome event must arrive");
+    assert_eq!(ev.event, "ald:server:welcome");
+    let body = ev.json_data().expect("welcome payload is JSON");
+    assert!(body.get("motd").is_some());
 
     let online = server.state().framework_players().lock().await.online_count();
     assert!(online >= 1, "framework must hold the joined player");
+
+    let rel = "spawn/ald_manifest.toml";
+    let disk = std::fs::read(format!("../../base-resources/{rel}")).expect("fixture on disk");
+    let expected =
+        ald_protocol::ResourceEntry { name: rel.into(), hash: ald_cache::sha256_hex(&disk), size: disk.len() as u64 };
+    let cache_dir = std::env::temp_dir().join(format!("ald-e2e-cache-{}", std::process::id()));
+    let got = client.fetch_resource_file(rel, &expected, &cache_dir).await.expect("download must succeed");
+    assert_eq!(got, disk, "downloaded bytes must match the server file");
+    let cache = ald_cache::ContentCache::open(&cache_dir, 64 * 1024 * 1024).expect("cache opens");
+    assert!(cache.verify(&expected.hash).expect("verify runs"), "cache must verify the committed object");
+    std::fs::remove_dir_all(&cache_dir).ok();
 
     let sessions = server.state().admission().lock().await.session_count();
     assert!(sessions >= 1);

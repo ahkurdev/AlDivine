@@ -57,6 +57,15 @@ pub struct AstrynClient {
     /// Background connect task. Awaited on shutdown so the client only
     /// reports Idle once the task has actually stopped.
     task: tokio::task::JoinHandle<()>,
+    session: Arc<tokio::sync::Mutex<Option<ConnectedTransport>>>,
+    last_event: Arc<std::sync::Mutex<Option<ald_protocol::EventEnvelope>>>,
+}
+
+/// Live transport after admission: the same socket/session the handshake used.
+pub struct ConnectedTransport {
+    pub transport: ald_network::UdpTransport,
+    pub peer: std::net::SocketAddr,
+    pub session_id: u64,
 }
 
 impl AstrynClient {
@@ -66,14 +75,18 @@ impl AstrynClient {
         let (shutdown_tx, shutdown_rx) = watch::channel(false);
         let state = Arc::new(std::sync::Mutex::new(ClientState::Bootstrapping));
         let started_at = Instant::now();
+        let session = Arc::new(tokio::sync::Mutex::new(None));
+        let last_event = Arc::new(std::sync::Mutex::new(None));
 
         let task_state = Arc::clone(&state);
+        let task_session = Arc::clone(&session);
+        let task_event = Arc::clone(&last_event);
         let addr = config.server_addr.clone();
         let task = tokio::spawn(async move {
-            run_connect_task(task_state, addr, shutdown_rx).await;
+            run_connect_task(task_state, task_session, task_event, addr, shutdown_rx).await;
         });
 
-        AstrynClient { state, config, started_at, shutdown_tx, task }
+        AstrynClient { state, config, started_at, shutdown_tx, task, session, last_event }
     }
 
     pub fn state(&self) -> ClientState {
@@ -86,6 +99,81 @@ impl AstrynClient {
 
     pub fn uptime(&self) -> std::time::Duration {
         self.started_at.elapsed()
+    }
+
+    /// Last server event received after admission, if any.
+    pub fn last_event(&self) -> Option<ald_protocol::EventEnvelope> {
+        self.last_event.lock().unwrap().clone()
+    }
+
+    /// True once the handshake completed and the socket is retained.
+    pub async fn has_session(&self) -> bool {
+        self.session.lock().await.is_some()
+    }
+
+    /// Fetch one resource file over the ResourceTransfer channel, reassemble
+    /// every chunk, verify its SHA-256 against the negotiated manifest, and
+    /// commit it to the content cache. Fails closed on stall, hash mismatch,
+    /// or a dead session — never an infinite download.
+    pub async fn fetch_resource_file(
+        &self,
+        name: &str,
+        expected: &ald_protocol::ResourceEntry,
+        cache_dir: &std::path::Path,
+    ) -> anyhow::Result<Vec<u8>> {
+        use ald_download::{ChunkPlan, Download};
+        use ald_protocol::{Channel, Packet, PacketHeader, TransferRequest, CHUNK_CAP, PROTOCOL_VERSION};
+
+        let mut guard = self.session.lock().await;
+        let live = guard.as_mut().ok_or_else(|| anyhow::anyhow!("no session"))?;
+        let mut dl = Download::new(ChunkPlan::new(expected.size, CHUNK_CAP).map_err(|e| anyhow::anyhow!("{e}"))?, 0);
+        let mut tick = 0u64;
+        let mut attempts = 0u64;
+        while !dl.is_complete() {
+            if attempts > 3 * dl.plan().chunk_count.max(1) + 10 {
+                anyhow::bail!("download stalled: {name}");
+            }
+            let (offset, len) = dl.missing_ranges().into_iter().next().ok_or_else(|| anyhow::anyhow!("no range"))?;
+            let req = TransferRequest { name: name.into(), offset, len };
+            let payload = ald_protocol::encode_request(&req).map_err(|e| anyhow::anyhow!("{e}"))?;
+            let out = Packet {
+                header: PacketHeader {
+                    protocol_version: PROTOCOL_VERSION,
+                    session_id: live.session_id,
+                    channel: Channel::ResourceTransfer,
+                    sequence: 0,
+                    tick: 0,
+                    timestamp_ms: 0,
+                    flags: 0,
+                    payload_len: payload.len() as u32,
+                },
+                payload,
+            };
+            live.transport.send(&out, live.peer).await.map_err(|e| anyhow::anyhow!("{e}"))?;
+            attempts += 1;
+            tick += 1;
+            match tokio::time::timeout(std::time::Duration::from_millis(2000), live.transport.recv()).await {
+                Ok(Ok((packet, _))) if packet.header.channel == Channel::ResourceTransfer => {
+                    let (header, data) =
+                        ald_protocol::decode_response(&packet.payload).map_err(|e| anyhow::anyhow!("{e}"))?;
+                    if header.name != name || header.total != expected.size {
+                        anyhow::bail!("chunk for wrong file");
+                    }
+                    dl.receive(header.offset, &data, tick).map_err(|e| anyhow::anyhow!("{e}"))?;
+                }
+                _ => continue,
+            }
+        }
+        let bytes = dl.assembled().ok_or_else(|| anyhow::anyhow!("incomplete"))?.to_vec();
+        let digest = ald_cache::sha256_hex(&bytes);
+        if digest != expected.hash {
+            anyhow::bail!("hash mismatch for {name}");
+        }
+        let mut cache =
+            ald_cache::ContentCache::open(cache_dir, 256 * 1024 * 1024).map_err(|e| anyhow::anyhow!("{e}"))?;
+        let staged = cache.stage(&bytes).map_err(|e| anyhow::anyhow!("{e}"))?;
+        cache.commit(staged, &expected.hash).map_err(|e| anyhow::anyhow!("{e}"))?;
+        Ok(bytes)
     }
 
     /// Request graceful shutdown and wait for the background task to exit.
@@ -116,6 +204,8 @@ impl AstrynClient {
 /// alone never promotes the client past `Connecting`/`Loading`.
 async fn run_connect_task(
     state: Arc<std::sync::Mutex<ClientState>>,
+    session_slot: Arc<tokio::sync::Mutex<Option<ConnectedTransport>>>,
+    event_slot: Arc<std::sync::Mutex<Option<ald_protocol::EventEnvelope>>>,
     addr: String,
     mut shutdown: watch::Receiver<bool>,
 ) {
@@ -355,7 +445,22 @@ async fn run_connect_task(
         }
         match recv_handshake(&transport, &mut shutdown, 2000).await {
             Some(HandshakeMessage::ServerReady { world_join: true }) => {
+                // The server follows ServerReady with a welcome event on the
+                // EventReliable channel. Capture one packet so the join proves
+                // real server-to-client event delivery, then keep the socket.
+                if let Ok(Ok((packet, _))) =
+                    tokio::time::timeout(std::time::Duration::from_millis(1000), transport.recv()).await
+                {
+                    if packet.header.channel == Channel::EventReliable {
+                        if let Ok(ev) = ald_protocol::decode_event(&packet.payload) {
+                            *event_slot.lock().unwrap() = Some(ev);
+                        }
+                    }
+                }
+                *session_slot.lock().await = Some(ConnectedTransport { transport, peer, session_id });
                 transition(&state, ClientState::Running);
+                let _ = shutdown.changed().await;
+                transition(&state, ClientState::Idle);
                 return;
             }
             Some(HandshakeMessage::ServerReady { world_join: false }) => {}

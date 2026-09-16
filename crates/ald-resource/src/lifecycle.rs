@@ -2,27 +2,48 @@ use std::collections::HashMap;
 
 use ald_core::AldError;
 
-/// Finite resource states with cleanup on transition.
+/// Full resource lifecycle. A resource is serving players only in HEALTHY
+/// (or DEGRADED with a recorded reason) — scripts must actually load and the
+/// health gate must pass. There is no shortcut from STARTING to serving.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ResourceState {
     Stopped,
+    Discovered,
+    Validating,
+    DependencyResolution,
     Starting,
-    Running,
+    ScriptHostStarting,
+    MigrationsReady,
+    HealthChecking,
+    Healthy,
+    Degraded,
+    Quarantined,
     Stopping,
     Failed,
-    Restarting,
 }
 
 impl ResourceState {
     pub fn as_str(&self) -> &'static str {
         match self {
             ResourceState::Stopped => "STOPPED",
+            ResourceState::Discovered => "DISCOVERED",
+            ResourceState::Validating => "VALIDATING",
+            ResourceState::DependencyResolution => "DEPENDENCY_RESOLUTION",
             ResourceState::Starting => "STARTING",
-            ResourceState::Running => "RUNNING",
+            ResourceState::ScriptHostStarting => "SCRIPT_HOST_STARTING",
+            ResourceState::MigrationsReady => "MIGRATIONS_READY",
+            ResourceState::HealthChecking => "HEALTH_CHECKING",
+            ResourceState::Healthy => "HEALTHY",
+            ResourceState::Degraded => "DEGRADED",
+            ResourceState::Quarantined => "QUARANTINED",
             ResourceState::Stopping => "STOPPING",
             ResourceState::Failed => "FAILED",
-            ResourceState::Restarting => "RESTARTING",
         }
+    }
+
+    /// Serving traffic (fully or with a recorded degradation).
+    pub fn is_serving(&self) -> bool {
+        matches!(self, ResourceState::Healthy | ResourceState::Degraded)
     }
 }
 
@@ -51,14 +72,41 @@ impl LifecycleManager {
         matches!(self.state(name), ResourceState::Stopped | ResourceState::Failed)
     }
 
-    /// Transition to Running after successful start; records handle count.
-    pub fn mark_running(&mut self, name: &str, handle_count: usize) -> Result<(), AldError> {
-        if self.state(name) != ResourceState::Starting {
-            return Err(AldError::Resource(format!("resource '{name}' not in Starting state before mark_running")));
+    /// Transition to Healthy after the health gate passes; records handle count.
+    pub fn mark_healthy(&mut self, name: &str, handle_count: usize) -> Result<(), AldError> {
+        if self.state(name) != ResourceState::HealthChecking {
+            return Err(AldError::Resource(format!(
+                "resource '{name}' not in HealthChecking state before mark_healthy"
+            )));
         }
-        self.set(name, ResourceState::Running);
+        self.set(name, ResourceState::Healthy);
         self.handles.insert(name.to_string(), handle_count);
         Ok(())
+    }
+
+    /// Transition to Degraded: serving with a recorded reason. Records handle
+    /// count like the healthy path.
+    pub fn mark_degraded(&mut self, name: &str, handle_count: usize) -> Result<(), AldError> {
+        if self.state(name) != ResourceState::HealthChecking {
+            return Err(AldError::Resource(format!(
+                "resource '{name}' not in HealthChecking state before mark_degraded"
+            )));
+        }
+        self.set(name, ResourceState::Degraded);
+        self.handles.insert(name.to_string(), handle_count);
+        Ok(())
+    }
+
+    /// Move a resource out of service for inspection. Only a serving or failed
+    /// resource can be quarantined; it returns via start after review.
+    pub fn quarantine(&mut self, name: &str) -> Result<(), AldError> {
+        match self.state(name) {
+            ResourceState::Healthy | ResourceState::Degraded | ResourceState::Failed => {
+                self.set(name, ResourceState::Quarantined);
+                Ok(())
+            }
+            other => Err(AldError::Resource(format!("resource '{name}' in {} cannot be quarantined", other.as_str()))),
+        }
     }
 
     /// Stop a resource, verifying all handles were released.
@@ -79,9 +127,9 @@ impl LifecycleManager {
         }
     }
 
-    /// Number of resources currently in the Running state.
+    /// Number of resources currently serving (Healthy or Degraded).
     pub fn running_count(&self) -> usize {
-        self.states.values().filter(|s| **s == ResourceState::Running).count()
+        self.states.values().filter(|s| s.is_serving()).count()
     }
 
     /// Names of all known resources, sorted for deterministic output.
@@ -99,9 +147,10 @@ mod tests {
     #[test]
     fn lifecycle_happy_path() {
         let mut lm = LifecycleManager::new();
-        lm.set("r", ResourceState::Starting);
-        lm.mark_running("r", 3).unwrap();
-        assert_eq!(lm.state("r"), ResourceState::Running);
+        lm.set("r", ResourceState::HealthChecking);
+        lm.mark_healthy("r", 3).unwrap();
+        assert_eq!(lm.state("r"), ResourceState::Healthy);
+        assert!(lm.state("r").is_serving());
         lm.release_handle("r");
         lm.release_handle("r");
         lm.release_handle("r");
@@ -110,10 +159,39 @@ mod tests {
     }
 
     #[test]
-    fn leaked_handles_block_stop() {
+    fn healthy_requires_health_checking() {
         let mut lm = LifecycleManager::new();
         lm.set("r", ResourceState::Starting);
-        lm.mark_running("r", 2).unwrap();
+        assert!(lm.mark_healthy("r", 0).is_err());
+        assert!(lm.mark_degraded("r", 0).is_err());
+    }
+
+    #[test]
+    fn degraded_serves() {
+        let mut lm = LifecycleManager::new();
+        lm.set("r", ResourceState::HealthChecking);
+        lm.mark_degraded("r", 1).unwrap();
+        assert!(lm.state("r").is_serving());
+        assert_eq!(lm.running_count(), 1);
+    }
+
+    #[test]
+    fn quarantine_roundtrip() {
+        let mut lm = LifecycleManager::new();
+        assert!(lm.quarantine("fresh").is_err());
+        lm.set("r", ResourceState::HealthChecking);
+        lm.mark_healthy("r", 0).unwrap();
+        lm.quarantine("r").unwrap();
+        assert_eq!(lm.state("r"), ResourceState::Quarantined);
+        assert!(!lm.state("r").is_serving());
+        assert_eq!(lm.running_count(), 0);
+    }
+
+    #[test]
+    fn leaked_handles_block_stop() {
+        let mut lm = LifecycleManager::new();
+        lm.set("r", ResourceState::HealthChecking);
+        lm.mark_healthy("r", 2).unwrap();
         lm.release_handle("r");
         assert!(lm.stop("r").is_err());
     }

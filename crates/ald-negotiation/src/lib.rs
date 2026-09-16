@@ -316,14 +316,15 @@ mod tests {
     use super::*;
 
     fn policy() -> NegotiationPolicy {
-        let mut p = NegotiationPolicy::default();
-        p.server_features = vec![
-            FeatureId::new("ald", "statebags", 2),
-            FeatureId::new("ald", "voice", 1),
-            FeatureId::new("ald", "dui", 1),
-        ];
-        p.server_capabilities = vec!["voice-opus".to_string()];
-        p
+        NegotiationPolicy {
+            server_features: vec![
+                FeatureId::new("ald", "statebags", 2),
+                FeatureId::new("ald", "voice", 1),
+                FeatureId::new("ald", "dui", 1),
+            ],
+            server_capabilities: vec!["voice-opus".to_string()],
+            ..Default::default()
+        }
     }
 
     fn client_hello() -> Hello {

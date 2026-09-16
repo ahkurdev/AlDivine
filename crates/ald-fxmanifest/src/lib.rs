@@ -144,13 +144,11 @@ impl ManifestValue {
             ManifestValue::List(v) => Some(v.iter().collect()),
             ManifestValue::Table(t) => {
                 let mut out = Vec::with_capacity(t.len());
-                let mut i = 1;
-                for (k, v) in t {
-                    if k != &i.to_string() {
+                for (idx, (k, v)) in t.iter().enumerate() {
+                    if *k != (idx + 1).to_string() {
                         return None;
                     }
                     out.push(v);
-                    i += 1;
                 }
                 Some(out)
             }
@@ -580,7 +578,6 @@ impl<'a> Parser<'a> {
     /// `{ 'a', x = 1, 'b' }` are kept as a Table with integer keys for the
     /// positional entries so nothing is reordered or lost.
     fn parse_table(&mut self) -> Result<ManifestValue, ManifestError> {
-        let mut seq: Vec<ManifestValue> = Vec::new();
         let mut map: Vec<(String, ManifestValue)> = Vec::new();
         let mut next_key = 1usize;
         loop {
@@ -633,12 +630,7 @@ impl<'a> Parser<'a> {
                 return Err(ManifestError::Syntax { line: self.lex.line, msg: "expected `,` or `}` in table".into() });
             }
         }
-        let _ = &mut seq;
-        if map.iter().all(|(k, _)| k.parse::<usize>().is_ok()) {
-            Ok(ManifestValue::Table(map))
-        } else {
-            Ok(ManifestValue::Table(map))
-        }
+        Ok(ManifestValue::Table(map))
     }
 
     fn apply(
@@ -821,19 +813,21 @@ pub fn parse_ald_manifest(src: &str) -> Result<NormalizedManifest, ManifestError
         lua54: bool,
     }
     let raw: Raw = toml::from_str(src).map_err(|e| ManifestError::Syntax { line: 1, msg: e.to_string() })?;
-    let mut out = NormalizedManifest::default();
-    out.fx_version = raw.fx_version;
-    out.game = raw.game;
-    out.client_scripts = raw.client_scripts;
-    out.server_scripts = raw.server_scripts;
-    out.shared_scripts = raw.shared_scripts;
-    out.files = raw.files;
-    out.ui_page = raw.ui_page;
-    out.dependencies = raw.dependencies;
-    out.provides = raw.provides;
-    out.this_is_a_map = raw.this_is_a_map;
-    out.server_only = raw.server_only;
-    out.lua54 = raw.lua54;
+    let out = NormalizedManifest {
+        fx_version: raw.fx_version,
+        game: raw.game,
+        client_scripts: raw.client_scripts,
+        server_scripts: raw.server_scripts,
+        shared_scripts: raw.shared_scripts,
+        files: raw.files,
+        ui_page: raw.ui_page,
+        dependencies: raw.dependencies,
+        provides: raw.provides,
+        this_is_a_map: raw.this_is_a_map,
+        server_only: raw.server_only,
+        lua54: raw.lua54,
+        ..Default::default()
+    };
     if out.fx_version.is_none() {
         return Err(ManifestError::MissingRequired("fx_version".into()));
     }

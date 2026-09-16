@@ -7,6 +7,7 @@ pub mod channel;
 pub mod event;
 pub mod handshake;
 pub mod packet;
+pub mod transfer;
 
 pub use channel::Channel;
 pub use event::{decode_event, encode_event, EventEnvelope};
@@ -16,6 +17,10 @@ pub use handshake::{
 };
 pub use packet::{
     decode_packet, encode_packet, Packet, PacketHeader, FLAG_ORDERED, FLAG_RELIABLE, HEADER_LEN, MAX_PAYLOAD,
+};
+pub use transfer::{
+    decode_request, decode_response, encode_request, encode_response, TransferHeader, TransferRequest, CHUNK_CAP,
+    MAX_REQUEST,
 };
 
 /// Current wire protocol version. Bump on incompatible changes.

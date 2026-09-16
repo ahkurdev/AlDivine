@@ -11,6 +11,13 @@ use tokio::sync::mpsc;
 use crate::state::ServerState;
 use crate::LifecycleCommand;
 
+macro_rules! fail_point {
+    ($self:expr, $name:expr, $state:expr) => {{
+        let mut l = $self.state.lifecycle().lock().await;
+        l.set($name, $state);
+    }};
+}
+
 pub struct LifecycleSupervisor {
     state: Arc<ServerState>,
 }
@@ -44,33 +51,51 @@ impl LifecycleSupervisor {
                 return;
             }
         }
+        let resource_dir = self.state.config().resources.directory.clone();
+        fail_point!(self, name, ald_resource::ResourceState::Validating);
+        let manifest = match load_manifest(name, &resource_dir) {
+            Ok(m) => m,
+            Err(e) => return self.fail(name, &e).await,
+        };
+        fail_point!(self, name, ald_resource::ResourceState::DependencyResolution);
+        if let Err(e) = check_dependencies(&manifest, &resource_dir) {
+            return self.fail(name, &e).await;
+        }
         {
             let mut l = self.state.lifecycle().lock().await;
             l.set(name, ald_resource::ResourceState::Starting);
         }
-        let resource_dir = self.state.config().resources.directory.clone();
-        match start_resource_scripts(name, &resource_dir) {
-            Ok(handles) => {
-                let mut l = self.state.lifecycle().lock().await;
-                match l.mark_running(name, handles) {
-                    Ok(()) => {
-                        self.state.metrics().incr("resources.started", 1);
-                        tracing::info!(resource = name, handles, "resource started");
-                    }
-                    Err(e) => {
-                        l.set(name, ald_resource::ResourceState::Failed);
-                        self.state.metrics().incr("resources.start_failures", 1);
-                        tracing::error!(resource = name, error = %e, "resource failed to start");
-                    }
+        fail_point!(self, name, ald_resource::ResourceState::ScriptHostStarting);
+        let handles = match start_resource_scripts(name, &resource_dir) {
+            Ok(h) => h,
+            Err(e) => return self.fail(name, &e).await,
+        };
+        if !manifest.database_migrations.is_empty() {
+            return self.fail(name, "database migrations declared but no migration runner is wired").await;
+        }
+        {
+            let mut l = self.state.lifecycle().lock().await;
+            l.set(name, ald_resource::ResourceState::MigrationsReady);
+            l.set(name, ald_resource::ResourceState::HealthChecking);
+            match l.mark_healthy(name, handles) {
+                Ok(()) => {
+                    self.state.metrics().incr("resources.started", 1);
+                    tracing::info!(resource = name, handles, "resource healthy");
+                }
+                Err(e) => {
+                    let msg = e.to_string();
+                    drop(l);
+                    self.fail(name, &msg).await;
                 }
             }
-            Err(e) => {
-                let mut l = self.state.lifecycle().lock().await;
-                l.set(name, ald_resource::ResourceState::Failed);
-                self.state.metrics().incr("resources.start_failures", 1);
-                tracing::error!(resource = name, error = %e, "resource failed to start");
-            }
         }
+    }
+
+    async fn fail(&self, name: &str, reason: &str) {
+        let mut l = self.state.lifecycle().lock().await;
+        l.set(name, ald_resource::ResourceState::Failed);
+        self.state.metrics().incr("resources.start_failures", 1);
+        tracing::error!(resource = name, reason, "resource failed to start");
     }
 
     async fn transition_stop(&self, name: &str) {
@@ -98,7 +123,6 @@ impl LifecycleSupervisor {
     }
 }
 
-#[cfg(feature = "lua")]
 fn resource_root(name: &str, configured: &str) -> Option<std::path::PathBuf> {
     for base in [configured, "base-resources", "../../base-resources"] {
         let root = std::path::PathBuf::from(base).join(name);
@@ -149,6 +173,21 @@ fn start_resource_scripts(name: &str, configured_dir: &str) -> Result<usize, Str
 #[cfg(not(feature = "lua"))]
 fn start_resource_scripts(name: &str, _configured_dir: &str) -> Result<usize, String> {
     Err(format!("resource '{name}' needs the lua script host (rebuild with --features lua)"))
+}
+
+fn load_manifest(name: &str, configured_dir: &str) -> Result<ald_resource::Manifest, String> {
+    let root = resource_root(name, configured_dir).ok_or_else(|| format!("manifest not found for '{name}'"))?;
+    let text = std::fs::read_to_string(root.join("ald_manifest.toml")).map_err(|e| format!("read manifest: {e}"))?;
+    ald_resource::Manifest::parse(&text).map_err(|e| format!("parse manifest: {e}"))
+}
+
+fn check_dependencies(manifest: &ald_resource::Manifest, configured_dir: &str) -> Result<(), String> {
+    for dep in &manifest.dependencies {
+        if resource_root(&dep.name, configured_dir).is_none() {
+            return Err(format!("resource '{}' missing dependency '{}'", manifest.name, dep.name));
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]

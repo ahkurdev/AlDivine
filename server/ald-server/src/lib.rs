@@ -24,6 +24,7 @@ pub mod config_loader;
 pub mod console;
 pub mod lifecycle;
 pub mod state;
+pub mod transfer;
 
 /// Commands accepted by the lifecycle supervisor task.
 #[derive(Debug, Clone)]

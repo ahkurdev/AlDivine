@@ -850,3 +850,23 @@ Created `crates/ald-compat-lab` (10/10 tests):
   IMPLEMENTATION_STATUS (Astryn split, queue/deferrals wired, assets
   recognition-only) and SUPPORT_MATRIX (evidence tiers, synthetic vs
   integration); `server.cfg.example`; `.github/workflows/ci.yml`.
+
+## 2026-09-16 — Vertical hardening: states, gate, transfer, Aegis product
+
+- Resource lifecycle now 13 states (ald-resource, 7 tests); supervisor walks
+  VALIDATING -> DEPENDENCY_RESOLUTION -> SCRIPT_HOST_STARTING ->
+  MIGRATIONS_READY -> HEALTH_CHECKING -> HEALTHY; HEALTHY requires manifest,
+  deps, scripts, migrations, health gate. Quarantine action added.
+- Ingress gate in dispatch: per-peer token bucket (300/150s), client channel
+  allowlist (+ResourceTransfer), Auth-only unknown peers, rejected dropped
+  (state.rs, 3 tests).
+- server.cfg `exec` includes resolved from disk with cycle/traversal guards
+  (config_loader, 2 tests).
+- Welcome event `ald:server:welcome` on EventReliable after ServerReady;
+  client captures it (e2e asserted).
+- Download transport v1: ald-protocol transfer codec (5 tests),
+  server chunk serve with containment (3 tests), Astryn fetch with stall
+  bound + SHA-256 + cache commit; e2e downloads spawn manifest byte-identical.
+- Aegis: setup/status + setup/complete provisioning (3 tests), React UI
+  aegis/web (Vite+TS+Tailwind sky) with setup wizard + live dashboard,
+  `npm run build` green; CI web job added.

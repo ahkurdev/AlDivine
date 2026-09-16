@@ -5,6 +5,10 @@ logs/
 **/*.rs.bk
 *.pdb
 
+# Frontend artifacts (rebuilt by `npm ci && npm run build`)
+**/node_modules/
+aegis/web/dist/
+
 # Secrets
 .env
 .env.local

@@ -1,14 +1,11 @@
 use aegis_node::{AegisNodeSupervisor, InstanceConfig};
+use ald_core::{install_crash_handler, DiagnosticLogger};
 use std::env;
 
-fn print_banner() {
-    println!("=====================================================");
-    println!("           AEGIS NODE AGENT — SUPERVISOR             ");
-    println!("        Aldivine Server Process Control              ");
-    println!("=====================================================");
-}
-
 fn main() {
+    install_crash_handler("logs", "aegis-node");
+    let logger = DiagnosticLogger::new("logs", "aegis-node.log");
+
     let args: Vec<String> = env::args().collect();
 
     if args.iter().any(|a| a == "--version" || a == "-v") {
@@ -16,28 +13,31 @@ fn main() {
         return;
     }
 
-    print_banner();
+    logger.info("aegis", "=====================================================");
+    logger.info("aegis", "           AEGIS NODE AGENT — SUPERVISOR             ");
+    logger.info("aegis", "        Aldivine Server Process Control              ");
+    logger.info("aegis", "=====================================================");
 
     let mut supervisor = AegisNodeSupervisor::new(1000);
     let config = InstanceConfig::default();
-    println!("Registering instance: {}", config.instance_id);
-    println!("Target binary: {}", config.binary_path);
-    println!("Config path: {}", config.config_path);
-    println!("Watchdog timeout: {} ms", config.watchdog_timeout_ms);
+    logger.info("config", &format!("Registering instance: {}", config.instance_id));
+    logger.info("config", &format!("Target binary: {}", config.binary_path));
+    logger.info("config", &format!("Config path: {}", config.config_path));
+    logger.info("watchdog", &format!("Watchdog timeout: {} ms", config.watchdog_timeout_ms));
 
     if let Err(e) = supervisor.register_instance(config) {
-        eprintln!("Failed to register instance: {}", e);
+        logger.error("config", &format!("Failed to register instance: {}", e));
         return;
     }
 
-    println!("Starting instance under supervisor...");
+    logger.info("runtime", "Starting instance under supervisor...");
     match supervisor.start_instance("default-inst", 0) {
         Ok(()) => {
-            println!("Instance 'default-inst' successfully registered and started.");
-            println!("Watchdog active. Status: Running.");
+            logger.info("runtime", "Instance 'default-inst' successfully registered and started.");
+            logger.info("runtime", "Watchdog active. Status: Running.");
         }
         Err(e) => {
-            eprintln!("Failed to start instance: {}", e);
+            logger.error("runtime", &format!("Failed to start instance: {}", e));
         }
     }
 

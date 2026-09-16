@@ -16,6 +16,7 @@ use ald_config::Config;
 use ald_resource::Manifest;
 
 mod audit;
+mod logs;
 mod migrate;
 mod new;
 mod report;
@@ -33,6 +34,7 @@ fn main() {
         "migrate" => migrate::run(rest),
         "dependencies" => audit::run(rest),
         "report" => report::run(rest),
+        "logs" => logs::run(rest),
         "resource" => cmd_resource(rest),
         "config" => cmd_config(rest),
         "help" | "--help" | "-h" => print_help(),
@@ -53,6 +55,7 @@ Usage:\n\
   ald config validate <server.toml>       Validate a server config\n\
   ald migrate <resource-path>             Migration report (no rewrite)\n\
   ald report create [root-dir] [--out <f>] Generate sanitized diagnostic bundle\n\
+  ald logs [target] [--errors] [--summary] Inspect, filter, and summarize runtime logs\n\
   ald dependencies audit-native         Native-dep audit (workspace root)\n\
   ald help                                Show this help"
     );

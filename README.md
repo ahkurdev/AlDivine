@@ -259,4 +259,4 @@ NovaGate and Aegis are in progress.
 
 ## License
 
-All rights reserved. See the LICENSE file.
+This project is licensed under the MIT License. See the LICENSE file.
